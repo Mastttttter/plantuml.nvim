@@ -16,7 +16,7 @@
         "e2e-manual": []
       },
       "skills": [],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Add language navigation to main README.md",
