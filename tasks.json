@@ -291,7 +291,7 @@
         ]
       },
       "skills": ["tdd-workflow"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Register user commands and module entry",
