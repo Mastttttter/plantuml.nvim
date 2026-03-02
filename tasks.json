@@ -334,7 +334,7 @@
         ]
       },
       "skills": ["tdd-workflow", "verification-before-completion"],
-      "complete": false
+      "complete": true
     }
   ]
 }
