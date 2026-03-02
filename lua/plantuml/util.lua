@@ -124,4 +124,47 @@ function M.get_puml_file_info()
   }
 end
 
+--- Find the newest file with given extension in a directory
+--- @param dir string Directory path to search
+--- @param ext string File extension to match (without dot, e.g., "utxt")
+--- @return string|nil Full path to the newest file, or nil if not found
+function M.find_newest_file(dir, ext)
+  if not dir or not ext then
+    return nil
+  end
+  
+  -- Check if directory exists
+  local stat = uv.fs_stat(dir)
+  if not stat or stat.type ~= "directory" then
+    return nil
+  end
+  
+  local handle = uv.fs_scandir(dir)
+  if not handle then
+    return nil
+  end
+  
+  local newest_file = nil
+  local newest_mtime = 0
+  local pattern = "%." .. ext .. "$"
+  
+  while true do
+    local name, type = uv.fs_scandir_next(handle)
+    if not name then
+      break
+    end
+    
+    if type == "file" and name:match(pattern) then
+      local full_path = dir .. "/" .. name
+      local file_stat = uv.fs_stat(full_path)
+      if file_stat and file_stat.mtime.sec > newest_mtime then
+        newest_mtime = file_stat.mtime.sec
+        newest_file = full_path
+      end
+    end
+  end
+  
+  return newest_file
+end
+
 return M

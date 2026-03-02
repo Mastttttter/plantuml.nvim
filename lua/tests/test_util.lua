@@ -340,4 +340,87 @@ describe("util module", function()
       vim.api.nvim_buf_delete(bufnr, { force = true })
     end)
   end)
+
+  describe("FR-6: find_newest_file", function()
+    it("returns nil when directory doesn't exist", function()
+      local result = util.find_newest_file("/nonexistent/directory", "utxt")
+      assert.is_nil(result)
+    end)
+
+    it("returns nil when directory is empty", function()
+      local empty_dir = test_dir .. "/empty"
+      uv.fs_mkdir(empty_dir, 493)
+      
+      local result = util.find_newest_file(empty_dir, "utxt")
+      assert.is_nil(result)
+    end)
+
+    it("returns nil when no files match extension", function()
+      local match_dir = test_dir .. "/match_test"
+      uv.fs_mkdir(match_dir, 493)
+      
+      -- Create files with different extension
+      local f = io.open(match_dir .. "/test.txt", "w")
+      if f then
+        f:write("test")
+        f:close()
+      end
+      
+      local result = util.find_newest_file(match_dir, "utxt")
+      assert.is_nil(result)
+    end)
+
+    it("returns file path when one file matches extension", function()
+      local match_dir = test_dir .. "/single_match"
+      uv.fs_mkdir(match_dir, 493)
+      
+      -- Create a utxt file
+      local file_path = match_dir .. "/diagram.utxt"
+      local f = io.open(file_path, "w")
+      if f then
+        f:write("ASCII art")
+        f:close()
+      end
+      
+      local result = util.find_newest_file(match_dir, "utxt")
+      assert.are.equal(file_path, result)
+    end)
+
+    it("returns newest file when multiple files match", function()
+      local multi_dir = test_dir .. "/multi_match"
+      uv.fs_mkdir(multi_dir, 493)
+      
+      -- Create older file
+      local older_file = multi_dir .. "/older.utxt"
+      local f1 = io.open(older_file, "w")
+      if f1 then
+        f1:write("old content")
+        f1:close()
+      end
+      
+      -- Small delay to ensure different mtime
+      vim.wait(10)
+      
+      -- Create newer file
+      local newer_file = multi_dir .. "/newer.utxt"
+      local f2 = io.open(newer_file, "w")
+      if f2 then
+        f2:write("new content")
+        f2:close()
+      end
+      
+      local result = util.find_newest_file(multi_dir, "utxt")
+      assert.are.equal(newer_file, result)
+    end)
+
+    it("returns nil for nil directory", function()
+      local result = util.find_newest_file(nil, "utxt")
+      assert.is_nil(result)
+    end)
+
+    it("returns nil for nil extension", function()
+      local result = util.find_newest_file(test_dir, nil)
+      assert.is_nil(result)
+    end)
+  end)
 end)

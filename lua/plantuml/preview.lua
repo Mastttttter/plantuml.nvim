@@ -76,7 +76,15 @@ local function generate_utxt_content(callback)
 
     -- Read the generated file (must use vim.schedule to avoid E5560 error)
     vim.schedule(function()
-      local content = vim.fn.readfile(output_path)
+      -- Find the actual generated file (PlantUML may use a different name)
+      local actual_file = util.find_newest_file(temp_dir, "utxt")
+      if not actual_file then
+        vim.notify("plantuml.nvim: No utxt file found in temp directory", vim.log.levels.ERROR)
+        callback(nil)
+        return
+      end
+
+      local content = vim.fn.readfile(actual_file)
       if content and #content > 0 then
         callback(content)
       else

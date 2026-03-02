@@ -1,5 +1,6 @@
 -- Test preview module
 local preview = require("plantuml.preview")
+local util = require("plantuml.util")
 local api = vim.api
 
 describe("preview module", function()
@@ -7,6 +8,7 @@ describe("preview module", function()
   local original_notify
   local original_system
   local original_executable
+  local original_find_newest_file
   local notify_messages
   local test_dir
   local original_windows
@@ -43,10 +45,23 @@ describe("preview module", function()
     package.loaded["plantuml.config"] = nil
     package.loaded["plantuml.executor"] = nil
     package.loaded["plantuml.preview"] = nil
+    package.loaded["plantuml.util"] = nil
 
     -- Initialize config before requiring executor/preview
     local config = require("plantuml.config")
     config.setup()
+
+    -- Re-require util after reset to get fresh module for mocking
+    util = require("plantuml.util")
+    
+    -- Mock util.find_newest_file to return a test file path
+    original_find_newest_file = util.find_newest_file
+    util.find_newest_file = function(dir, ext)
+      if ext == "utxt" then
+        return "/tmp/plantuml.nvim/test_diagram.utxt"
+      end
+      return nil
+    end
 
     preview = require("plantuml.preview")
   end)
@@ -56,6 +71,7 @@ describe("preview module", function()
     vim.notify = original_notify
     vim.system = original_system
     vim.fn.executable = original_executable
+    util.find_newest_file = original_find_newest_file
 
     -- Close any preview windows
     for _, win in ipairs(api.nvim_list_wins()) do
