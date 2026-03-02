@@ -23,3 +23,6 @@ Thumbs.db
 *.log
 # TDD workflow artifacts
 tdd-summary/
+
+# Progress tracking
+PROGRESS.txt
