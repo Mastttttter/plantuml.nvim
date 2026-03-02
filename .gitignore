@@ -1,0 +1,23 @@
+# Lua
+*.luac
+*.lua~
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+*.rock
+
+# Test
+.luacheckcache
+
+# Logs
+*.log

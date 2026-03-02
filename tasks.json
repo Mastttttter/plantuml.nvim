@@ -1,0 +1,340 @@
+{
+  "tasks": [
+    {
+      "task": "Implement configuration module",
+      "description": "Create config.lua with setup function, default options, and plantuml executable detection logic.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Define configuration schema with java_cmd, plantuml_jar, inkscape_cmd, server_port options"
+        },
+        {
+          "step": 2,
+          "description": "Implement setup function that merges user options with defaults"
+        },
+        {
+          "step": 3,
+          "description": "Implement plantuml executable detection: prefer system plantuml, fallback to java -jar"
+        },
+        {
+          "step": 4,
+          "description": "Add validation for required tools (java/plantuml) with error messages"
+        }
+      ],
+      "acceptance-criteria": "Config module exports setup(opts) function that validates and stores configuration. Module detects system plantuml via vim.fn.executable('plantuml') and uses it if available, otherwise uses java -jar plantuml.jar pattern. Missing plantuml/java produces clear error notification.",
+      "test-plan": {
+        "unit": [
+          "setup() with empty opts returns default configuration table",
+          "setup() with custom opts merges correctly (user opts override defaults)",
+          "plantuml_cmd is 'plantuml' when system plantuml is available (mock vim.fn.executable)",
+          "plantuml_cmd is 'java -jar /path/to/plantuml.jar' when plantuml_jar is configured",
+          "setup() warns when neither plantuml nor java is available"
+        ],
+        "integration": [],
+        "e2e-manual": []
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Implement utility functions",
+      "description": "Create util.lua with path manipulation, git root detection, and temp directory management functions.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Implement find_git_root(buffer_path) that walks up directory tree to find .git"
+        },
+        {
+          "step": 2,
+          "description": "Implement get_project_folder(buffer_path) returning git root or buffer cwd"
+        },
+        {
+          "step": 3,
+          "description": "Implement ensure_temp_dir() creating /tmp/plantuml.nvim/ if not exists"
+        },
+        {
+          "step": 4,
+          "description": "Implement get_output_dir(buffer_path, subdir) returning umlout/<subdir> path"
+        },
+        {
+          "step": 5,
+          "description": "Implement get_puml_file_info() extracting filename without extension"
+        }
+      ],
+      "acceptance-criteria": "Util module exports find_git_root(), get_project_folder(), ensure_temp_dir(), get_output_dir(), get_puml_file_info(). find_git_root returns first parent with .git or nil. Temp directory is created with proper permissions. Output directory path follows project-folder/umlout/<subdir> pattern.",
+      "test-plan": {
+        "unit": [
+          "find_git_root('/a/b/.git/c') returns '/a/b'",
+          "find_git_root('/a/b/c') with no .git returns nil",
+          "get_project_folder('/project/.git/sub/file.puml') returns '/project'",
+          "get_project_folder('/no/git/file.puml') returns buffer cwd",
+          "ensure_temp_dir() creates /tmp/plantuml.nvim/ with mode 493",
+          "get_output_dir('/project/file.puml', 'svg') returns '/project/umlout/svg'"
+        ],
+        "integration": [],
+        "e2e-manual": []
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Implement command executor",
+      "description": "Create executor.lua with async PlantUML and Inkscape command execution wrappers.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Implement run_plantuml(input, output_path, format, callback) using vim.system"
+        },
+        {
+          "step": 2,
+          "description": "Implement run_inkscape(svg_path, png_path, dpi, callback) for PNG conversion"
+        },
+        {
+          "step": 3,
+          "description": "Add error handling with vim.notify for command failures"
+        },
+        {
+          "step": 4,
+          "description": "Implement stdout/stderr capture and exit code checking"
+        }
+      ],
+      "acceptance-criteria": "Executor module exports run_plantuml() and run_inkscape() async functions. Commands execute via vim.system() with proper argument arrays. Non-zero exit codes trigger vim.notify with ERROR level. Callback receives (success, output_or_error) tuple.",
+      "test-plan": {
+        "unit": [
+          "run_plantuml() constructs correct command: plantuml --format svg -o output input",
+          "run_plantuml() uses java -jar pattern when configured",
+          "run_inkscape() constructs correct command: inkscape --export-dpi=400 --export-filename=out.png in.svg",
+          "Command with exit code 0 calls callback(true, output)",
+          "Command with exit code 1 calls callback(false, stderr)"
+        ],
+        "integration": [
+          "run_plantuml() with real plantuml generates valid SVG from test diagram",
+          "run_inkscape() with real inkscape converts SVG to PNG"
+        ],
+        "e2e-manual": []
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Implement file creator module",
+      "description": "Create creator.lua with PlantumlCreateSVG, PlantumlCreatePNG, and PlantumlCreateUTXT command implementations.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Implement create_svg(buffer_path) generating SVG to umlout/svg/"
+        },
+        {
+          "step": 2,
+          "description": "Implement create_png(buffer_path) generating SVG then converting to PNG via Inkscape"
+        },
+        {
+          "step": 3,
+          "description": "Implement create_utxt(buffer_path) generating UTXT to umlout/utxt/"
+        },
+        {
+          "step": 4,
+          "description": "Add success/failure notifications with output file path"
+        },
+        {
+          "step": 5,
+          "description": "Ensure output directories exist before writing"
+        }
+      ],
+      "acceptance-criteria": "Creator module exports create_svg(), create_png(), create_utxt() functions. Each function reads current buffer, executes plantuml with correct format, saves to project-folder/umlout/<format>/. PNG conversion chains SVG generation then Inkscape. User receives notification with output path on success or error message on failure.",
+      "test-plan": {
+        "unit": [
+          "create_svg() calls executor.run_plantuml with --format svg",
+          "create_png() calls run_plantuml then run_inkscape in sequence",
+          "create_utxt() calls executor.run_plantuml with --utxt flag",
+          "Output directory is created if not exists",
+          "Success notification shows full output path"
+        ],
+        "integration": [
+          "create_svg() with real plantuml creates valid SVG file in umlout/svg/",
+          "create_png() creates valid PNG file in umlout/png/",
+          "create_utxt() creates valid UTXT file in umlout/utxt/"
+        ],
+        "e2e-manual": []
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Implement Node.js preview server",
+      "description": "Create server/server.js as a simple static file server for SVG preview and server.lua for server lifecycle management.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Create server.js using Node.js http module serving /tmp/plantuml.nvim/ directory"
+        },
+        {
+          "step": 2,
+          "description": "Add CORS headers for local development"
+        },
+        {
+          "step": 3,
+          "description": "Implement server.lua with start_server() and stop_server() functions"
+        },
+        {
+          "step": 4,
+          "description": "Track server process with vim.loop for lifecycle management"
+        },
+        {
+          "step": 5,
+          "description": "Add port conflict detection with fallback to next available port"
+        }
+      ],
+      "acceptance-criteria": "Server module exports start_server(callback) and stop_server(). Node.js server serves files from /tmp/plantuml.nvim/ on configured port (default 8080). Server process is tracked and can be stopped cleanly. Port conflicts trigger automatic port increment. Server URL is passed to callback on successful start.",
+      "test-plan": {
+        "unit": [
+          "server.js returns 200 for existing file in temp directory",
+          "server.js returns 404 for non-existent file",
+          "server.js includes CORS headers in response",
+          "start_server() spawns node process with correct arguments",
+          "stop_server() kills the server process"
+        ],
+        "integration": [
+          "Server serves SVG file that was generated by create_svg()",
+          "Browser can access the SVG via http://localhost:8080/file.svg"
+        ],
+        "e2e-manual": [
+          "Open browser to server URL and verify SVG renders correctly"
+        ]
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Implement UTXT preview module",
+      "description": "Create preview.lua with PlantumlPreviewUTXT command implementation including smart window management and auto-refresh on save.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Implement preview_utxt() generating temp UTXT and opening in split window"
+        },
+        {
+          "step": 2,
+          "description": "Implement find_preview_window() checking for existing preview buffer"
+        },
+        {
+          "step": 3,
+          "description": "Implement update_preview() reusing existing window or creating new split"
+        },
+        {
+          "step": 4,
+          "description": "Register BufWritePost autocmd for .puml/.uml files to trigger auto-refresh"
+        },
+        {
+          "step": 5,
+          "description": "Implement cleanup function to remove autocmd when preview closes"
+        }
+      ],
+      "acceptance-criteria": "Preview module exports preview_utxt() function. First call creates vertical split to the right with UTXT content. Subsequent calls update the existing buffer without creating new windows. BufWritePost autocmd triggers automatic preview refresh for .puml/.uml files. Buffer variable 'plantuml_preview' marks preview buffers.",
+      "test-plan": {
+        "unit": [
+          "find_preview_window() returns nil when no preview exists",
+          "find_preview_window() returns window id when preview buffer exists",
+          "preview_utxt() creates new split when no preview exists",
+          "preview_utxt() reuses existing window when preview is open",
+          "Autocmd is registered with correct pattern (*.puml,*.uml)",
+          "Autocmd is removed when preview buffer is wiped"
+        ],
+        "integration": [
+          "preview_utxt() displays real plantuml UTXT output from test diagram",
+          "Saving .puml file triggers preview buffer update"
+        ],
+        "e2e-manual": [
+          "Verify UTXT preview displays Unicode characters correctly",
+          "Verify preview updates immediately after :w"
+        ]
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Implement SVG browser preview",
+      "description": "Implement PlantumlPreview command that generates SVG to temp directory, starts server if needed, and opens browser.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Implement preview_svg() generating SVG to /tmp/plantuml.nvim/"
+        },
+        {
+          "step": 2,
+          "description": "Start preview server if not already running"
+        },
+        {
+          "step": 3,
+          "description": "Use vim.ui.open() to open browser with server URL + filename"
+        },
+        {
+          "step": 4,
+          "description": "Track server state to avoid multiple server instances"
+        }
+      ],
+      "acceptance-criteria": "preview_svg() generates SVG file to temp directory. Server is started lazily on first preview call. Browser opens via vim.ui.open() pointing to localhost:port/filename.svg. Multiple preview calls reuse the same server instance. Server is stopped on Neovim exit via VimLeave autocmd.",
+      "test-plan": {
+        "unit": [
+          "preview_svg() generates SVG with unique temp filename",
+          "Server is not started if already running",
+          "vim.ui.open() is called with correct URL format",
+          "VimLeave autocmd stops the server"
+        ],
+        "integration": [
+          "Full preview flow: generate SVG, start server, open browser",
+          "Browser displays the generated SVG diagram"
+        ],
+        "e2e-manual": [
+          "Verify browser opens automatically with SVG preview",
+          "Verify SVG renders correctly in browser"
+        ]
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Register user commands and module entry",
+      "description": "Create plugin/plantuml.lua with command registration and lua/plantuml/init.lua with public API exports.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Create init.lua exporting setup(), preview(), preview_utxt(), create_svg(), create_png(), create_utxt()"
+        },
+        {
+          "step": 2,
+          "description": "Create plugin/plantuml.lua with nvim_create_user_command for all 5 commands"
+        },
+        {
+          "step": 3,
+          "description": "Add command completion for file arguments if applicable"
+        },
+        {
+          "step": 4,
+          "description": "Add VimLeave autocmd to cleanup server and temp files"
+        }
+      ],
+      "acceptance-criteria": "Plugin registers 5 Neovim user commands: PlantumlPreview, PlantumlPreviewUTXT, PlantumlCreateSVG, PlantumlCreatePNG, PlantumlCreateUTXT. Commands work on current buffer .puml/.uml files. setup() function is called on plugin load with optional user configuration. VimLeave autocmd ensures server is stopped.",
+      "test-plan": {
+        "unit": [
+          ":PlantumlPreview command exists and is callable",
+          ":PlantumlPreviewUTXT command exists and is callable",
+          ":PlantumlCreateSVG command exists and is callable",
+          ":PlantumlCreatePNG command exists and is callable",
+          ":PlantumlCreateUTXT command exists and is callable",
+          "setup() merges user config with defaults"
+        ],
+        "integration": [
+          "Full workflow: edit .puml file, run :PlantumlPreview, see browser output",
+          "Full workflow: edit .puml file, run :PlantumlCreateSVG, verify file exists"
+        ],
+        "e2e-manual": [
+          "Install plugin, run :PlantumlPreview on sample diagram, verify browser opens",
+          "Run :PlantumlPreviewUTXT, edit and save file, verify preview updates"
+        ]
+      },
+      "skills": ["tdd-workflow", "verification-before-completion"],
+      "complete": false
+    }
+  ]
+}
