@@ -74,13 +74,15 @@ local function generate_utxt_content(callback)
       return
     end
 
-    -- Read the generated file
-    local content = vim.fn.readfile(output_path)
-    if content and #content > 0 then
-      callback(content)
-    else
-      callback(nil)
-    end
+    -- Read the generated file (must use vim.schedule to avoid E5560 error)
+    vim.schedule(function()
+      local content = vim.fn.readfile(output_path)
+      if content and #content > 0 then
+        callback(content)
+      else
+        callback(nil)
+      end
+    end)
   end)
 end
 
