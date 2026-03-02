@@ -158,7 +158,7 @@
         "e2e-manual": []
       },
       "skills": ["tdd-workflow"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Implement Node.js preview server",
