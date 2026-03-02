@@ -31,6 +31,42 @@
       },
       "skills": ["testing-safe-protocol", "verification-before-completion"],
       "complete": true
+    },
+    {
+      "task": "Fix UTXT preview file path mismatch bug",
+      "description": "Fix the bug where PlantUML output file path doesn't match the expected path in preview.lua.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Add utility function to find newest .utxt file in temp directory"
+        },
+        {
+          "step": 2,
+          "description": "Update generate_utxt_content to use actual output file from PlantUML"
+        },
+        {
+          "step": 3,
+          "description": "Test the fix with PlantumlPreviewUTXT command"
+        }
+      ],
+      "acceptance-criteria": "PlantumlPreviewUTXT command must successfully find and read the generated .utxt file. The error 'Can't open file' must not occur. Preview window must display the UTXT content correctly.",
+      "test-plan": {
+        "unit": [
+          "util.find_newest_utxt_file returns correct file path when .utxt files exist in temp directory",
+          "util.find_newest_utxt_file returns nil when temp directory is empty or doesn't exist",
+          "util.find_newest_utxt_file returns the most recently modified .utxt file when multiple exist"
+        ],
+        "integration": [
+          "generate_utxt_content successfully reads content from actual PlantUML output file",
+          "preview_utxt creates preview window with correct content after PlantUML generates file"
+        ],
+        "e2e-manual": [
+          "Run :PlantumlPreviewUTXT on a .puml file and verify preview window shows UTXT output",
+          "Save the .puml file and verify auto-refresh updates the preview window"
+        ]
+      },
+      "skills": ["systematic-debugging", "testing-safe-protocol"],
+      "complete": false
     }
   ]
 }
