@@ -31,8 +31,8 @@ function M.find_preview_window()
   -- Also check for buffers with our marker
   for _, buf in ipairs(api.nvim_list_bufs()) do
     if api.nvim_buf_is_valid(buf) then
-      local is_preview = api.nvim_buf_get_var(buf, "plantuml_preview")
-      if is_preview then
+      local ok, is_preview = pcall(api.nvim_buf_get_var, buf, "plantuml_preview")
+      if ok and is_preview then
         -- Update our state
         state.preview_bufnr = buf
         for _, win in ipairs(api.nvim_list_wins()) do
