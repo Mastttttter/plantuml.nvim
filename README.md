@@ -18,6 +18,27 @@ this plugin support:
 
 open a plantuml file (.puml .uml) in neovim buffer, then use the commands
 
+## configuration
+
+```lua
+require('plantuml').setup({
+  -- Path to java command (default: "java")
+  java_cmd = "java",
+  
+  -- Path to plantuml.jar file (optional, uses system plantuml if not set)
+  plantuml_jar = nil,
+  
+  -- Path to inkscape command (default: "inkscape")
+  inkscape_cmd = "inkscape",
+  
+  -- Server port for preview (default: 8080)
+  server_port = 8080,
+  
+  -- DPI for PNG export via Inkscape (default: 300)
+  png_dpi = 300,
+})
+```
+
 ## notice
 
 - All the temp file will save in `/tmp/plantuml.nvim/` folder

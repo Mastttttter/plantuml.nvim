@@ -6,9 +6,7 @@ local M = {}
 local uv = vim.loop
 local executor = require("plantuml.executor")
 local util = require("plantuml.util")
-
---- Default DPI for PNG export
-local DEFAULT_DPI = 300
+local config = require("plantuml.config")
 
 --- Ensure output directory exists
 --- @param dir string Directory path to create
@@ -125,7 +123,9 @@ function M.create_png(callback)
     end
 
     -- Step 2: Convert SVG to PNG using Inkscape
-    executor.run_inkscape(svg_path, png_path, DEFAULT_DPI, function(inkscape_success, inkscape_output)
+    local cfg = config.get()
+    local dpi = cfg.png_dpi or 300
+    executor.run_inkscape(svg_path, png_path, dpi, function(inkscape_success, inkscape_output)
       if inkscape_success then
         vim.notify(
           "plantuml.nvim: PNG created: " .. png_path,

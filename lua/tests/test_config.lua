@@ -189,6 +189,53 @@ describe("config module", function()
     end)
   end)
 
+  describe("FR-5: png_dpi Configuration", function()
+    it("setup() returns default png_dpi of 300", function()
+      original_executable = vim.fn.executable
+      vim.fn.executable = function(cmd)
+        return 1 -- All executables available
+      end
+      
+      local cfg = config.setup()
+      
+      assert.are.equal(300, cfg.png_dpi)
+    end)
+
+    it("setup() with custom png_dpi uses provided value", function()
+      original_executable = vim.fn.executable
+      vim.fn.executable = function(cmd)
+        return 1
+      end
+      
+      local cfg = config.setup({ png_dpi = 400 })
+      
+      assert.are.equal(400, cfg.png_dpi)
+    end)
+
+    it("setup() with nil png_dpi uses default 300", function()
+      original_executable = vim.fn.executable
+      vim.fn.executable = function(cmd)
+        return 1
+      end
+      
+      local cfg = config.setup({ png_dpi = nil })
+      
+      assert.are.equal(300, cfg.png_dpi)
+    end)
+
+    it("get() returns configured png_dpi value", function()
+      original_executable = vim.fn.executable
+      vim.fn.executable = function(cmd)
+        return 1
+      end
+      
+      config.setup({ png_dpi = 500 })
+      local cfg = config.get()
+      
+      assert.are.equal(500, cfg.png_dpi)
+    end)
+  end)
+
   describe("FR-4: Tool Validation with Error Messages", function()
     it("shows no error when plantuml available", function()
       original_executable = vim.fn.executable

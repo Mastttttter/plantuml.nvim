@@ -527,6 +527,61 @@ describe("creator module", function()
 
       assert.are.equal("300", captured_dpi)
     end)
+
+    it("uses configured png_dpi from config for Inkscape export", function()
+      local test_file = test_dir .. "/diagram.puml"
+      local captured_dpi = nil
+
+      -- Create test file
+      local f = io.open(test_file, "w")
+      if f then
+        f:write("@startuml\nA -> B\n@enduml")
+        f:close()
+      end
+
+      -- Mock buffer functions
+      vim.api.nvim_get_current_buf = function()
+        return 1
+      end
+      vim.api.nvim_buf_get_name = function(bufnr)
+        return test_file
+      end
+
+      vim.system = function(cmd, opts, callback)
+        if cmd[1] == "plantuml" or cmd[1] == "java" then
+          uv.fs_mkdir(test_dir .. "/umlout/svg", 493)
+          local out = io.open(test_dir .. "/umlout/svg/diagram.svg", "w")
+          if out then
+            out:write("<svg>test</svg>")
+            out:close()
+          end
+          callback({ code = 0, stdout = "", stderr = "" })
+        elseif cmd[1] == "inkscape" then
+          -- Capture DPI argument
+          for i, arg in ipairs(cmd) do
+            if arg == "--export-dpi" then
+              captured_dpi = cmd[i + 1]
+            end
+          end
+          uv.fs_mkdir(test_dir .. "/umlout/png", 493)
+          local out = io.open(test_dir .. "/umlout/png/diagram.png", "w")
+          if out then
+            out:write("PNGDATA")
+            out:close()
+          end
+          callback({ code = 0, stdout = "", stderr = "" })
+        end
+      end
+
+      -- Configure custom DPI
+      config.setup({ png_dpi = 400 })
+      package.loaded["plantuml.creator"] = nil
+      creator = require("plantuml.creator")
+
+      creator.create_png(function() end)
+
+      assert.are.equal("400", captured_dpi)
+    end)
   end)
 
   describe("FR-3: create_utxt", function()
