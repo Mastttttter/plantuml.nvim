@@ -42,7 +42,7 @@
         "e2e-manual": ["Visual inspection: badges display correctly with proper colors and labels"]
       },
       "skills": [],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Create README.zh-TW.md (Traditional Chinese)",
