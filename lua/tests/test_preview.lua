@@ -41,8 +41,13 @@ describe("preview module", function()
 
     -- Reset module state
     package.loaded["plantuml.config"] = nil
-    package.loaded["plantuml.preview"] = nil
     package.loaded["plantuml.executor"] = nil
+    package.loaded["plantuml.preview"] = nil
+
+    -- Initialize config before requiring executor/preview
+    local config = require("plantuml.config")
+    config.setup()
+
     preview = require("plantuml.preview")
   end)
 

@@ -250,7 +250,7 @@
         ]
       },
       "skills": ["tdd-workflow"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Implement SVG browser preview",

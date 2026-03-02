@@ -91,11 +91,15 @@ local function update_preview_buffer(content)
     return
   end
 
+  -- Make buffer modifiable temporarily
+  api.nvim_buf_set_option(state.preview_bufnr, "modifiable", true)
+
   -- Set buffer content
   api.nvim_buf_set_lines(state.preview_bufnr, 0, -1, false, content)
 
-  -- Reset modified flag
+  -- Reset options
   api.nvim_buf_set_option(state.preview_bufnr, "modified", false)
+  api.nvim_buf_set_option(state.preview_bufnr, "modifiable", false)
 end
 
 --- Create a new preview buffer and window
