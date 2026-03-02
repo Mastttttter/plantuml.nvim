@@ -6,7 +6,7 @@
       "steps": [
         {
           "step": 1,
-          "description": "Wrap vim.fn.readfile call in vim.schedule callback"
+          "description": "Wrap vim.fn.readfile call in vim.schedule Callback"
         },
         {
           "step": 2,
@@ -67,6 +67,73 @@
       },
       "skills": ["systematic-debugging", "testing-safe-protocol"],
       "complete": true
+    },
+    {
+      "task": "Fix buffer name conflict on preview reopen",
+      "description": "Fix E95 error when reopening preview window by handling existing buffer with same name.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Add helper function to find existing buffer by name 'plantuml://preview'"
+        },
+        {
+          "step": 2,
+          "description": "Update create_preview_window to delete stale buffer before creating new one"
+        },
+        {
+          "step": 3,
+          "description": "Ensure state is properly cleaned when preview buffer is deleted"
+        }
+      ],
+      "acceptance-criteria": "PlantumlPreviewUTXT command works correctly when called multiple times after closing the preview window directly. No E95 error occurs. Preview window can be opened, closed, and reopened without errors.",
+      "test-plan": {
+        "unit": [
+          "Helper function correctly identifies buffer with name 'plantuml://preview'",
+          "create_preview_window deletes existing buffer with same name before creating new one",
+          "State is properly reset when preview buffer is deleted or closed"
+        ],
+        "integration": [
+          "Full workflow: open preview -> close window directly -> reopen preview succeeds without E95 error",
+          "Preview content updates correctly after reopening",
+          "Multiple open/close cycles work without errors"
+        ],
+        "e2e-manual": []
+      },
+      "skills": ["systematic-debugging", "testing-safe-protocol"],
+      "complete": false
+    },
+    {
+      "task": "Add customizable DPI configuration for PNG export",
+      "description": "Add png_dpi configuration option to allow users to customize Inkscape export DPI.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Add png_dpi option to DEFAULTS table in config.lua with default value 300"
+        },
+        {
+          "step": 2,
+          "description": "Update creator.lua to read png_dpi from config instead of hardcoded DEFAULT_DPI"
+        },
+        {
+          "step": 3,
+          "description": "Update README.md with documentation for the new png_dpi configuration option"
+        }
+      ],
+      "acceptance-criteria": "Users can configure png_dpi via setup({ png_dpi = 400 }). The PlantumlCreatePNG command uses the configured DPI value when calling Inkscape. Default DPI remains 300 if not configured.",
+      "test-plan": {
+        "unit": [
+          "config.get() returns png_dpi value from user configuration",
+          "config.get() returns default 300 when png_dpi not configured",
+          "creator.create_png passes config.png_dpi to executor.run_inkscape"
+        ],
+        "integration": [
+          "PlantumlCreatePNG command with custom DPI (e.g., 400) produces correct Inkscape command",
+          "PNG file is created successfully with custom DPI configuration"
+        ],
+        "e2e-manual": []
+      },
+      "skills": ["tdd-workflow", "verification-before-completion"],
+      "complete": false
     }
   ]
 }
