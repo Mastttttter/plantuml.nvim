@@ -100,7 +100,7 @@
         "e2e-manual": []
       },
       "skills": ["systematic-debugging", "testing-safe-protocol"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Add customizable DPI configuration for PNG export",

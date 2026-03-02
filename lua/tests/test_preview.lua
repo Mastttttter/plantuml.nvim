@@ -596,5 +596,62 @@ describe("preview module", function()
       preview.close_preview()
       preview.close_preview() -- Should not error
     end)
+
+    it("can reopen preview after closing window directly", function()
+      -- Create a test PlantUML file
+      local test_file = test_dir .. "/diagram.puml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      local call_count = 0
+
+      -- Mock system call
+      vim.system = function(cmd, opts, callback)
+        call_count = call_count + 1
+        vim.schedule(function()
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock file reading
+      local original_readfile = vim.fn.readfile
+      vim.fn.readfile = function(path)
+        if path:match("%.utxt$") then
+          return { "ASCII art " .. call_count }
+        end
+        return original_readfile(path)
+      end
+
+      -- First call creates preview
+      preview.preview_utxt()
+      vim.wait(500, function()
+        return call_count >= 1
+      end, 10)
+
+      -- Find the preview window and close it directly (simulating user closing with :q)
+      local preview_win = preview.find_preview_window()
+      assert.is_not_nil(preview_win, "preview window should exist")
+
+      -- Close the window directly (not via close_preview)
+      api.nvim_win_close(preview_win, true)
+      vim.wait(50)
+
+      -- Now try to reopen - this should NOT cause E95 error
+      call_count = 0
+      preview.preview_utxt()
+      vim.wait(500, function()
+        return call_count >= 1
+      end, 10)
+
+      vim.fn.readfile = original_readfile
+
+      -- Verify a new preview window was created
+      local new_preview_win = preview.find_preview_window()
+      assert.is_not_nil(new_preview_win, "new preview window should be created after direct close")
+    end)
   end)
 end)

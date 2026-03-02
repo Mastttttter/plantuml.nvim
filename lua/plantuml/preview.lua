@@ -15,6 +15,21 @@ local state = {
   autocmd_id = nil,
 }
 
+--- Find existing buffer by name
+--- @param name string Buffer name to search for
+--- @return number|nil Buffer number if found, nil otherwise
+local function find_buffer_by_name(name)
+  for _, buf in ipairs(api.nvim_list_bufs()) do
+    if api.nvim_buf_is_valid(buf) then
+      local ok, buf_name = pcall(api.nvim_buf_get_name, buf)
+      if ok and buf_name == name then
+        return buf
+      end
+    end
+  end
+  return nil
+end
+
 --- Find existing preview window
 --- @return number|nil Window ID if preview exists, nil otherwise
 function M.find_preview_window()
@@ -112,9 +127,27 @@ local function update_preview_buffer(content)
   api.nvim_buf_set_option(state.preview_bufnr, "modifiable", false)
 end
 
+--- Clean up preview state when buffer is closed
+local function on_preview_buffer_closed()
+  -- Check if this is our preview buffer being closed
+  state.preview_bufnr = nil
+  state.preview_winnr = nil
+  state.source_bufnr = nil
+  M.unregister_autocmd()
+end
+
 --- Create a new preview buffer and window
 --- @param content table Array of lines
 local function create_preview_window(content)
+  -- Check for and delete any existing buffer with the same name
+  -- This handles the case where the preview window was closed directly
+  -- but the buffer still exists with name "plantuml://preview"
+  local existing_buf = find_buffer_by_name("plantuml://preview")
+  if existing_buf then
+    -- Delete the stale buffer to avoid E95 error
+    pcall(api.nvim_buf_delete, existing_buf, { force = true })
+  end
+
   -- Create a new buffer
   state.preview_bufnr = api.nvim_create_buf(false, true) -- scratch buffer, no file
 
@@ -150,6 +183,14 @@ local function create_preview_window(content)
 
   -- Return to source window
   api.nvim_set_current_win(api.nvim_get_current_win())
+
+  -- Register buffer cleanup on BufWipeout
+  -- This ensures state is cleaned when user closes preview window directly
+  api.nvim_create_autocmd("BufWipeout", {
+    buffer = state.preview_bufnr,
+    callback = on_preview_buffer_closed,
+    desc = "Clean up preview state when buffer is wiped out",
+  })
 
   -- Register autocmd for auto-refresh
   M.register_autocmd()
@@ -195,15 +236,6 @@ function M.refresh_preview()
       vim.notify("plantuml.nvim: Preview updated", vim.log.levels.INFO)
     end
   end)
-end
-
---- Clean up preview state when buffer is closed
-local function on_preview_buffer_closed()
-  -- Check if this is our preview buffer being closed
-  state.preview_bufnr = nil
-  state.preview_winnr = nil
-  state.source_bufnr = nil
-  M.unregister_autocmd()
 end
 
 --- Main preview function
