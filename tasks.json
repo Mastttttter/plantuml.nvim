@@ -203,7 +203,7 @@
         ]
       },
       "skills": ["tdd-workflow"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Implement UTXT preview module",
