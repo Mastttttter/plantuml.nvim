@@ -474,7 +474,7 @@ describe("creator module", function()
       assert.is_true(found_error, "should have error notification")
     end)
 
-    it("uses default DPI of 300 for Inkscape export", function()
+    it("uses default DPI of 800 for Inkscape export", function()
       local test_file = test_dir .. "/diagram.puml"
       local captured_dpi = nil
 
@@ -525,7 +525,7 @@ describe("creator module", function()
 
       creator.create_png(function() end)
 
-      assert.are.equal("300", captured_dpi)
+      assert.are.equal("800", captured_dpi)
     end)
 
     it("uses configured png_dpi from config for Inkscape export", function()

@@ -31,11 +31,11 @@ require('plantuml').setup({
   -- Path to inkscape command (default: "inkscape")
   inkscape_cmd = "inkscape",
   
-  -- Server port for preview (default: 8080)
-  server_port = 8080,
+  -- Server port for preview (default: 8912)
+  server_port = 8912,
   
-  -- DPI for PNG export via Inkscape (default: 300)
-  png_dpi = 300,
+  -- DPI for PNG export via Inkscape (default: 800)
+  png_dpi = 800,
 })
 ```
 

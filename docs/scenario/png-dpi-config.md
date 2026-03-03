@@ -7,8 +7,8 @@
 ## Test Steps
 
 - Case 1 (happy path): User configures custom png_dpi value (e.g., 400)
-- Case 2 (default value): User calls setup without png_dpi, should default to 300
-- Case 3 (nil value): User passes nil for png_dpi, should use default 300
+- Case 2 (default value): User calls setup without png_dpi, should default to 800
+- Case 3 (nil value): User passes nil for png_dpi, should use default 800
 
 ## Status
 - [x] Write scenario document

@@ -79,8 +79,8 @@ return {
       java_cmd = "java",
       plantuml_jar = nil,        -- Путь к plantuml.jar (опционально, если plantuml в PATH)
       inkscape_cmd = "inkscape",
-      server_port = 8080,
-      png_dpi = 300,
+      server_port = 8912,
+      png_dpi = 800,
     })
   end,
   keys = {
@@ -121,11 +121,11 @@ require('plantuml').setup({
   -- Путь к команде inkscape (по умолчанию: "inkscape")
   inkscape_cmd = "inkscape",
   
-  -- Порт сервера для предпросмотра в браузере (по умолчанию: 8080)
-  server_port = 8080,
+  -- Порт сервера для предпросмотра в браузере (по умолчанию: 8912)
+  server_port = 8912,
   
-  -- DPI для экспорта PNG через Inkscape (по умолчанию: 300)
-  png_dpi = 300,
+  -- DPI для экспорта PNG через Inkscape (по умолчанию: 800)
+  png_dpi = 800,
 })
 ```
 
@@ -136,8 +136,8 @@ require('plantuml').setup({
 | `java_cmd` | string | `"java"` | Путь к исполняемому файлу Java (используется с `plantuml_jar`) |
 | `plantuml_jar` | string \| nil | `nil` | Путь к файлу `plantuml.jar`. Если `nil`, используется системная команда `plantuml` |
 | `inkscape_cmd` | string | `"inkscape"` | Путь к исполняемому файлу Inkscape для конвертации в PNG |
-| `server_port` | number | `8080` | Порт для локального сервера предпросмотра |
-| `png_dpi` | number | `300` | Разрешение в DPI для экспорта PNG |
+| `server_port` | number | `8912` | Порт для локального сервера предпросмотра |
+| `png_dpi` | number | `800` | Разрешение в DPI для экспорта PNG |
 
 ## Примечания
 
@@ -152,7 +152,7 @@ require('plantuml').setup({
 - **Команда Inkscape**: генерация PNG использует Inkscape со следующим шаблоном команды:
 
   ```bash
-  inkscape --export-dpi=300 --export-filename=output.png input.svg
+  inkscape --export-dpi=800 --export-filename=output.png input.svg
   ```
 
 ## Лицензия

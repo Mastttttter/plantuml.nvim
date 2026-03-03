@@ -79,8 +79,8 @@ return {
       java_cmd = "java",
       plantuml_jar = nil,        -- plantuml.jar 경로 (plantuml이 PATH에 있는 경우 선택사항)
       inkscape_cmd = "inkscape",
-      server_port = 8080,
-      png_dpi = 300,
+      server_port = 8912,
+      png_dpi = 800,
     })
   end,
   keys = {
@@ -121,11 +121,11 @@ require('plantuml').setup({
   -- Inkscape 명령어 경로 (기본값: "inkscape")
   inkscape_cmd = "inkscape",
   
-  -- 브라우저 미리보기용 서버 포트 (기본값: 8080)
-  server_port = 8080,
+  -- 브라우저 미리보기용 서버 포트 (기본값: 8912)
+  server_port = 8912,
   
-  -- Inkscape를 통한 PNG 내보내기 DPI (기본값: 300)
-  png_dpi = 300,
+  -- Inkscape를 통한 PNG 내보내기 DPI (기본값: 800)
+  png_dpi = 800,
 })
 ```
 
@@ -136,8 +136,8 @@ require('plantuml').setup({
 | `java_cmd` | string | `"java"` | Java 실행 파일 경로 (`plantuml_jar` 사용 시 필요) |
 | `plantuml_jar` | string \| nil | `nil` | `plantuml.jar` 파일 경로. `nil`인 경우 시스템 `plantuml` 명령어 사용 |
 | `inkscape_cmd` | string | `"inkscape"` | PNG 변환용 Inkscape 실행 파일 경로 |
-| `server_port` | number | `8080` | 로컬 미리보기 서버 포트 번호 |
-| `png_dpi` | number | `300` | PNG 내보내기 DPI 해상도 |
+| `server_port` | number | `8912` | 로컬 미리보기 서버 포트 번호 |
+| `png_dpi` | number | `800` | PNG 내보내기 DPI 해상도 |
 
 ## 참고사항
 
@@ -152,7 +152,7 @@ require('plantuml').setup({
 - **Inkscape 명령어**: PNG 생성은 다음 명령어 패턴으로 Inkscape를 사용합니다:
 
   ```bash
-  inkscape --export-dpi=300 --export-filename=output.png input.svg
+  inkscape --export-dpi=800 --export-filename=output.png input.svg
   ```
 
 ## 라이선스

@@ -415,7 +415,7 @@ General:
      --gui ........................ Launch the graphical user interface
  -h, --help ....................... Show help and usage information
      --help-more .................. Show extended help (advanced options)
-     --http-server[:<port>] ....... Start internal HTTP server for rendering (default port : 8080)
+     --http-server[:<port>] ....... Start internal HTTP server for rendering (default port : 8912)
      --progress-bar ............... Show a textual progress bar
      --splash-screen .............. Show splash screen with progress bar
  -v, --verbose .................... Enable verbose logging

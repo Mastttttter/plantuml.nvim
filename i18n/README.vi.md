@@ -79,8 +79,8 @@ return {
       java_cmd = "java",
       plantuml_jar = nil,        -- Đường dẫn đến plantuml.jar (tùy chọn nếu plantuml có trong PATH)
       inkscape_cmd = "inkscape",
-      server_port = 8080,
-      png_dpi = 300,
+      server_port = 8912,
+      png_dpi = 800,
     })
   end,
   keys = {
@@ -121,11 +121,11 @@ require('plantuml').setup({
   -- Đường dẫn đến lệnh inkscape (mặc định: "inkscape")
   inkscape_cmd = "inkscape",
   
-  -- Cổng máy chủ cho xem trước trên trình duyệt (mặc định: 8080)
-  server_port = 8080,
+  -- Cổng máy chủ cho xem trước trên trình duyệt (mặc định: 8912)
+  server_port = 8912,
   
-  -- DPI cho xuất PNG qua Inkscape (mặc định: 300)
-  png_dpi = 300,
+  -- DPI cho xuất PNG qua Inkscape (mặc định: 800)
+  png_dpi = 800,
 })
 ```
 
@@ -136,8 +136,8 @@ require('plantuml').setup({
 | `java_cmd` | string | `"java"` | Đường dẫn đến file thực thi Java (dùng với `plantuml_jar`) |
 | `plantuml_jar` | string \| nil | `nil` | Đường dẫn đến file `plantuml.jar`. Nếu `nil`, sử dụng lệnh `plantuml` của hệ thống |
 | `inkscape_cmd` | string | `"inkscape"` | Đường dẫn đến file thực thi Inkscape để chuyển đổi PNG |
-| `server_port` | number | `8080` | Cổng cho máy chủ xem trước cục bộ |
-| `png_dpi` | number | `300` | Độ phân giải DPI cho xuất PNG |
+| `server_port` | number | `8912` | Cổng cho máy chủ xem trước cục bộ |
+| `png_dpi` | number | `800` | Độ phân giải DPI cho xuất PNG |
 
 ## Lưu ý
 
@@ -152,7 +152,7 @@ require('plantuml').setup({
 - **Lệnh Inkscape**: Tạo PNG sử dụng Inkscape với mẫu lệnh sau:
 
   ```bash
-  inkscape --export-dpi=300 --export-filename=output.png input.svg
+  inkscape --export-dpi=800 --export-filename=output.png input.svg
   ```
 
 ## Giấy phép

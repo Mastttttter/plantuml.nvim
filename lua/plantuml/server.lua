@@ -97,7 +97,7 @@ function M.start_server(callback)
 
   -- Get configuration
   local cfg = config.get()
-  local start_port = cfg.server_port or 8080
+  local start_port = cfg.server_port or 8912
   local max_port = start_port + 20 -- Allow up to 20 port increments
 
   -- Get server.js path

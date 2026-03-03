@@ -79,8 +79,8 @@ return {
       java_cmd = "java",
       plantuml_jar = nil,        -- مسار ملف plantuml.jar (اختياري إذا كان plantuml في PATH)
       inkscape_cmd = "inkscape",
-      server_port = 8080,
-      png_dpi = 300,
+      server_port = 8912,
+      png_dpi = 800,
     })
   end,
   keys = {
@@ -121,11 +121,11 @@ require('plantuml').setup({
   -- مسار أمر inkscape (الافتراضي: "inkscape")
   inkscape_cmd = "inkscape",
   
-  -- منفذ الخادم لمعاينة المتصفح (الافتراضي: 8080)
-  server_port = 8080,
+  -- منفذ الخادم لمعاينة المتصفح (الافتراضي: 8912)
+  server_port = 8912,
   
-  -- DPI لتصدير PNG عبر Inkscape (الافتراضي: 300)
-  png_dpi = 300,
+  -- DPI لتصدير PNG عبر Inkscape (الافتراضي: 800)
+  png_dpi = 800,
 })
 ```
 
@@ -136,8 +136,8 @@ require('plantuml').setup({
 | `java_cmd` | نص | `"java"` | مسار ملف Java التنفيذي (يُستخدم مع `plantuml_jar`) |
 | `plantuml_jar` | نص \| nil | `nil` | مسار ملف `plantuml.jar`. إذا كان `nil`، يستخدم أمر `plantuml` النظام |
 | `inkscape_cmd` | نص | `"inkscape"` | مسار ملف Inkscape التنفيذي لتحويل PNG |
-| `server_port` | رقم | `8080` | منفذ خادم المعاينة المحلي |
-| `png_dpi` | رقم | `300` | دقة DPI لتصدير PNG |
+| `server_port` | رقم | `8912` | منفذ خادم المعاينة المحلي |
+| `png_dpi` | رقم | `800` | دقة DPI لتصدير PNG |
 
 ## ملاحظات
 
@@ -152,7 +152,7 @@ require('plantuml').setup({
 - **أمر Inkscape**: يستخدم إنشاء PNG أمر Inkscape بالنمط التالي:
 
   ```bash
-  inkscape --export-dpi=300 --export-filename=output.png input.svg
+  inkscape --export-dpi=800 --export-filename=output.png input.svg
   ```
 
 ## الرخصة

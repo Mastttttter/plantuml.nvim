@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SERVE_DIR = '/tmp/plantuml.nvim';
-const DEFAULT_PORT = 8080;
+const DEFAULT_PORT = 8912;
 const MAX_PORT = 8099;
 
 // Get port from command line argument

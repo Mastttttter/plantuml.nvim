@@ -7,7 +7,7 @@
 ## Test Steps
 
 - Case 1 (happy path): Callback receives "http://localhost:<port>" URL
-- Case 2 (default port): With port 8080, callback receives "http://localhost:8080"
+- Case 2 (default port): With port 8912, callback receives "http://localhost:8912"
 - Case 3 (custom port): With custom port, callback receives correct URL
 - Case 4 (fallback port): After port conflict, callback receives URL with new port
 - Case 5 (nil callback): Module handles nil callback gracefully

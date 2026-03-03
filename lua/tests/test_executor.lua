@@ -278,7 +278,7 @@ describe("executor module", function()
 
       local svg_path = test_dir .. "/diagram.svg"
       local png_path = test_dir .. "/diagram.png"
-      local dpi = 300
+      local dpi = 800
 
       executor.run_inkscape(svg_path, png_path, dpi, function(success, output)
         assert.is_true(success)
@@ -324,7 +324,7 @@ describe("executor module", function()
       config.setup()
       executor = require("plantuml.executor")
 
-      executor.run_inkscape(test_dir .. "/input.svg", test_dir .. "/output.png", 300, function(success, output)
+      executor.run_inkscape(test_dir .. "/input.svg", test_dir .. "/output.png", 800, function(success, output)
         assert.is_false(success)
         assert.are.equal("Inkscape error", output)
       end)
@@ -367,7 +367,7 @@ describe("executor module", function()
       executor = require("plantuml.executor")
 
       local callback_args = nil
-      executor.run_inkscape(test_dir .. "/input.svg", test_dir .. "/output.png", 300, function(success, output)
+      executor.run_inkscape(test_dir .. "/input.svg", test_dir .. "/output.png", 800, function(success, output)
         callback_args = { success = success, output = output }
       end)
 
@@ -391,7 +391,7 @@ describe("executor module", function()
       config.setup({ inkscape_cmd = "/custom/path/inkscape" })
       executor = require("plantuml.executor")
 
-      executor.run_inkscape(test_dir .. "/input.svg", test_dir .. "/output.png", 300, function() end)
+      executor.run_inkscape(test_dir .. "/input.svg", test_dir .. "/output.png", 800, function() end)
 
       assert.is_not_nil(captured_cmd)
       assert.are.equal("/custom/path/inkscape", captured_cmd[1])

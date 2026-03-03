@@ -43,7 +43,7 @@ describe("config module", function()
       assert.are.equal("java", cfg.java_cmd)
       assert.are.equal(nil, cfg.plantuml_jar)
       assert.are.equal("inkscape", cfg.inkscape_cmd)
-      assert.are.equal(8080, cfg.server_port)
+      assert.are.equal(8912, cfg.server_port)
       assert.are.equal("plantuml", cfg.plantuml_cmd)
     end)
 
@@ -56,7 +56,7 @@ describe("config module", function()
       local cfg = config.setup({})
       
       assert.are.equal("java", cfg.java_cmd)
-      assert.are.equal(8080, cfg.server_port)
+      assert.are.equal(8912, cfg.server_port)
     end)
 
     it("get() before setup() returns defaults", function()
@@ -68,7 +68,7 @@ describe("config module", function()
       local cfg = config.get()
       
       assert.are.equal("java", cfg.java_cmd)
-      assert.are.equal(8080, cfg.server_port)
+      assert.are.equal(8912, cfg.server_port)
     end)
   end)
 
@@ -190,7 +190,7 @@ describe("config module", function()
   end)
 
   describe("FR-5: png_dpi Configuration", function()
-    it("setup() returns default png_dpi of 300", function()
+    it("setup() returns default png_dpi of 800", function()
       original_executable = vim.fn.executable
       vim.fn.executable = function(cmd)
         return 1 -- All executables available
@@ -198,7 +198,7 @@ describe("config module", function()
       
       local cfg = config.setup()
       
-      assert.are.equal(300, cfg.png_dpi)
+      assert.are.equal(800, cfg.png_dpi)
     end)
 
     it("setup() with custom png_dpi uses provided value", function()
@@ -212,7 +212,7 @@ describe("config module", function()
       assert.are.equal(400, cfg.png_dpi)
     end)
 
-    it("setup() with nil png_dpi uses default 300", function()
+    it("setup() with nil png_dpi uses default 800", function()
       original_executable = vim.fn.executable
       vim.fn.executable = function(cmd)
         return 1
@@ -220,7 +220,7 @@ describe("config module", function()
       
       local cfg = config.setup({ png_dpi = nil })
       
-      assert.are.equal(300, cfg.png_dpi)
+      assert.are.equal(800, cfg.png_dpi)
     end)
 
     it("get() returns configured png_dpi value", function()

@@ -124,7 +124,7 @@ function M.create_png(callback)
 
     -- Step 2: Convert SVG to PNG using Inkscape
     local cfg = config.get()
-    local dpi = cfg.png_dpi or 300
+    local dpi = cfg.png_dpi or 800
     executor.run_inkscape(svg_path, png_path, dpi, function(inkscape_success, inkscape_output)
       if inkscape_success then
         vim.notify(

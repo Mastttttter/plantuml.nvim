@@ -79,8 +79,8 @@ return {
       java_cmd = "java",
       plantuml_jar = nil,        -- plantuml.jar 路径（如果 plantuml 在 PATH 中则可选）
       inkscape_cmd = "inkscape",
-      server_port = 8080,
-      png_dpi = 300,
+      server_port = 8912,
+      png_dpi = 800,
     })
   end,
   keys = {
@@ -121,11 +121,11 @@ require('plantuml').setup({
   -- Inkscape 命令路径（默认值："inkscape"）
   inkscape_cmd = "inkscape",
   
-  -- 浏览器预览服务器端口（默认值：8080）
-  server_port = 8080,
+  -- 浏览器预览服务器端口（默认值：8912）
+  server_port = 8912,
   
-  -- 通过 Inkscape 导出 PNG 的 DPI（默认值：300）
-  png_dpi = 300,
+  -- 通过 Inkscape 导出 PNG 的 DPI（默认值：800）
+  png_dpi = 800,
 })
 ```
 
@@ -136,8 +136,8 @@ require('plantuml').setup({
 | `java_cmd` | string | `"java"` | Java 可执行文件路径（配合 `plantuml_jar` 使用） |
 | `plantuml_jar` | string \| nil | `nil` | `plantuml.jar` 文件路径。如果为 `nil`，则使用系统 `plantuml` 命令 |
 | `inkscape_cmd` | string | `"inkscape"` | 用于 PNG 转换的 Inkscape 可执行文件路径 |
-| `server_port` | number | `8080` | 本地预览服务器端口 |
-| `png_dpi` | number | `300` | PNG 导出的 DPI 分辨率 |
+| `server_port` | number | `8912` | 本地预览服务器端口 |
+| `png_dpi` | number | `800` | PNG 导出的 DPI 分辨率 |
 
 ## 注意事项
 
@@ -152,7 +152,7 @@ require('plantuml').setup({
 - **Inkscape 命令**：PNG 生成使用 Inkscape，命令格式如下：
 
   ```bash
-  inkscape --export-dpi=300 --export-filename=output.png input.svg
+  inkscape --export-dpi=800 --export-filename=output.png input.svg
   ```
 
 ## 许可证

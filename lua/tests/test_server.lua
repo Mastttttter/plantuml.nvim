@@ -43,9 +43,9 @@ describe("server module", function()
     vim.loop.new_pipe = function()
       local pipe = {}
       pipe.read_start = function(self, callback)
-        -- Simulate reading PORT:8080
+        -- Simulate reading PORT:8912
         vim.schedule(function()
-          callback(nil, "PORT:8080\n")
+          callback(nil, "PORT:8912\n")
         end)
       end
       pipe.close = function() end
@@ -303,7 +303,7 @@ describe("server module", function()
         local port = callback_url:match(":(%d+)$")
         assert.is_not_nil(port)
         local port_num = tonumber(port)
-        assert.is_true(port_num >= 8080 and port_num <= 8099)
+        assert.is_true(port_num >= 8912 and port_num <= 8099)
       end
     end)
   end)
@@ -320,7 +320,7 @@ describe("server module", function()
         return callback_url ~= nil
       end, 10)
 
-      assert.is_equal("http://localhost:8080", callback_url)
+      assert.is_equal("http://localhost:8912", callback_url)
     end)
 
     it("handles nil callback gracefully", function()

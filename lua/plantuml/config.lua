@@ -8,8 +8,8 @@ local DEFAULTS = {
   java_cmd = "java",
   plantuml_jar = nil,
   inkscape_cmd = "inkscape",
-  server_port = 8080,
-  png_dpi = 300,
+  server_port = 8912,
+  png_dpi = 800,
   plantuml_cmd = nil, -- Detected at setup time
 }
 

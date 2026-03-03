@@ -79,8 +79,8 @@ return {
       java_cmd = "java",
       plantuml_jar = nil,        -- plantuml.jar yolu (plantuml PATH'teyse isteğe bağlı)
       inkscape_cmd = "inkscape",
-      server_port = 8080,
-      png_dpi = 300,
+      server_port = 8912,
+      png_dpi = 800,
     })
   end,
   keys = {
@@ -121,11 +121,11 @@ require('plantuml').setup({
   -- Inkscape komutunun yolu (varsayılan: "inkscape")
   inkscape_cmd = "inkscape",
   
-  -- Tarayıcı önizlemesi için sunucu portu (varsayılan: 8080)
-  server_port = 8080,
+  -- Tarayıcı önizlemesi için sunucu portu (varsayılan: 8912)
+  server_port = 8912,
   
-  -- Inkscape aracılığıyla PNG dışa aktarımı için DPI (varsayılan: 300)
-  png_dpi = 300,
+  -- Inkscape aracılığıyla PNG dışa aktarımı için DPI (varsayılan: 800)
+  png_dpi = 800,
 })
 ```
 
@@ -136,8 +136,8 @@ require('plantuml').setup({
 | `java_cmd` | string | `"java"` | Java çalıştırılabilir dosyasının yolu (`plantuml_jar` ile kullanılır) |
 | `plantuml_jar` | string \| nil | `nil` | `plantuml.jar` dosyasının yolu. `nil` ise, sistem `plantuml` komutunu kullanır |
 | `inkscape_cmd` | string | `"inkscape"` | PNG dönüştürme için Inkscape çalıştırılabilir dosyasının yolu |
-| `server_port` | number | `8080` | Yerel önizleme sunucusu için port |
-| `png_dpi` | number | `300` | PNG dışa aktarımı için DPI çözünürlüğü |
+| `server_port` | number | `8912` | Yerel önizleme sunucusu için port |
+| `png_dpi` | number | `800` | PNG dışa aktarımı için DPI çözünürlüğü |
 
 ## Notlar
 
@@ -152,7 +152,7 @@ require('plantuml').setup({
 - **Inkscape Komutu**: PNG oluşturma, Inkscape'i şu komut kalıbıyla kullanır:
 
   ```bash
-  inkscape --export-dpi=300 --export-filename=output.png input.svg
+  inkscape --export-dpi=800 --export-filename=output.png input.svg
   ```
 
 ## Lisans
