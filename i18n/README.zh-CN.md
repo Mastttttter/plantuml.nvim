@@ -43,6 +43,7 @@
   - `plantuml` 命令已添加到 PATH 环境变量，或
   - `plantuml.jar` 文件（在 setup 中配置路径）
 - **Inkscape**（可选，用于高 DPI PNG 导出）
+- **Node.js**
 
 ### 文件类型配置
 

@@ -43,6 +43,7 @@ Dieses Plugin bietet eine nahtlose PlantUML-Integration für Neovim mit folgende
   - `plantuml`-Befehl im PATH verfügbar, oder
   - `plantuml.jar`-Datei (Pfad in der Konfiguration angeben)
 - **Inkscape** (optional, für hochauflösenden PNG-Export)
+- **Node.js**
 
 ### Dateityp-Konfiguration
 

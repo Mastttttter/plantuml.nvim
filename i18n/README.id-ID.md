@@ -43,6 +43,7 @@ Plugin ini menyediakan integrasi PlantUML yang mulus untuk Neovim dengan fitur-f
   - perintah `plantuml` tersedia di PATH, atau
   - file `plantuml.jar` (konfigurasikan path saat setup)
 - **Inkscape** (opsional, untuk ekspor PNG resolusi tinggi)
+- **Node.js**
 
 ### Konfigurasi Tipe File
 

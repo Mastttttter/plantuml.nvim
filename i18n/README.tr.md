@@ -43,6 +43,7 @@ Bu eklenti, Neovim için kusursuz bir PlantUML entegrasyonu sağlar ve şu özel
   - `plantuml` komutu PATH'te mevcut olmalı, veya
   - `plantuml.jar` dosyası (kurulumda yolunu yapılandırın)
 - **Inkscape** (isteğe bağlı, yüksek çözünürlüklü PNG dışa aktarımı için)
+- **Node.js**
 
 ### Dosya Türü Yapılandırması
 

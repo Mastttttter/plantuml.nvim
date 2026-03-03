@@ -43,6 +43,7 @@
   - PATH에서 `plantuml` 명령어 사용 가능, 또는
   - `plantuml.jar` 파일 (설정에서 경로 지정)
 - **Inkscape** (선택사항, 고해상도 PNG 내보내기용)
+- **Node.js**
 
 ### 파일 타입 설정
 

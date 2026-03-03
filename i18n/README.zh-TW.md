@@ -43,6 +43,7 @@
   - `plantuml` 指令已存在於 PATH 環境變數中，或
   - `plantuml.jar` 檔案（需在設定中指定路徑）
 - **Inkscape**（選用，用於高解析度 PNG 匯出）
+- **Node.js**
 
 ### 檔案類型設定
 
