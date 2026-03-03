@@ -198,7 +198,7 @@
         "e2e-manual": ["Native speaker review: translation is natural and accurate"]
       },
       "skills": [],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Create README.pt-BR.md (Portuguese Brazil)",
