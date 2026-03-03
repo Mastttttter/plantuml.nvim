@@ -330,7 +330,7 @@
       "skills": [],
       "complete": true
     },
-    {
+{
       "task": "Create README.uk.md (Ukrainian)",
       "description": "Translate README.md to Ukrainian with natural local expressions and add multilingual navigation.",
       "steps": [
@@ -354,7 +354,7 @@
         "e2e-manual": ["Native speaker review: translation is natural and accurate"]
       },
       "skills": [],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Create README.tr.md (Turkish)",
