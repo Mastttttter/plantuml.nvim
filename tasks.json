@@ -1,438 +1,125 @@
 {
   "tasks": [
     {
-      "task": "Create i18n folder structure",
-      "description": "Create the ./i18n/ directory to store all translated README files.",
+      "task": "Add SSE endpoint to server.js",
+      "description": "Implement Server-Sent Events endpoint in Node.js server to push refresh notifications when SVG files change.",
       "steps": [
         {
           "step": 1,
-          "description": "Create ./i18n/ directory"
+          "description": "Add /events SSE endpoint with proper headers and keep-alive mechanism"
+        },
+        {
+          "step": 2,
+          "description": "Implement file watcher using fs.watch to monitor /tmp/plantuml.nvim directory"
+        },
+        {
+          "step": 3,
+          "description": "Broadcast refresh event to all connected SSE clients when SVG file changes"
+        },
+        {
+          "step": 4,
+          "description": "Handle client disconnect and cleanup stale connections"
         }
       ],
-      "acceptance-criteria": "Directory ./i18n/ exists and is ready for file creation.",
+      "acceptance-criteria": "SSE endpoint /events returns Content-Type: text/event-stream. Server maintains list of connected clients. File changes in /tmp/plantuml.nvim trigger SSE event with data: refresh. Disconnected clients are properly cleaned up. PlantumlCreateSVG and PlantumlCreatePNG are NOT affected.",
       "test-plan": {
-        "unit": ["Directory ./i18n/ exists with proper permissions"],
-        "integration": [],
-        "e2e-manual": []
+        "unit": [
+          "SSE endpoint returns correct headers (Content-Type: text/event-stream, Cache-Control: no-cache, Connection: keep-alive)",
+          "Client connection is added to clients list on connect",
+          "Client connection is removed from clients list on disconnect",
+          "File watcher callback sends refresh event to all connected clients with correct SSE format"
+        ],
+        "integration": [
+          "curl to /events receives keep-alive comments and refresh events when SVG file is modified in /tmp/plantuml.nvim",
+          "Multiple concurrent clients all receive refresh events"
+        ],
+        "e2e-manual": [
+          "Open browser to SSE endpoint, modify SVG file in /tmp/plantuml.nvim, verify browser receives refresh event"
+        ]
       },
-      "skills": [],
-      "complete": true
+      "skills": ["testing-safe-protocol"],
+      "complete": false
     },
     {
-      "task": "Add language navigation to main README.md",
-      "description": "Insert multilingual navigation badges after the title and before Introduction section in README.md.",
+      "task": "Inject SSE listener script into preview SVG",
+      "description": "Inject auto-refresh script into SVG files ONLY for PlantumlPreview, not for PlantumlCreateSVG or PlantumlCreatePNG.",
       "steps": [
         {
           "step": 1,
-          "description": "Read current README.md content"
+          "description": "Create inject_script() helper function in preview.lua that adds EventSource listener"
         },
         {
           "step": 2,
-          "description": "Insert language badges between </p> and ## Introduction"
+          "description": "Call inject_script() in preview_svg() AFTER executor.run_plantuml() callback, only for preview output"
         },
         {
           "step": 3,
-          "description": "Write updated README.md"
+          "description": "Verify PlantumlCreateSVG and PlantumlCreatePNG do NOT receive script injection"
         }
       ],
-      "acceptance-criteria": "README.md contains all 15 language navigation badges after the title paragraph and before ## Introduction section. Each badge links to correct i18n file path.",
+      "acceptance-criteria": "SVG files in /tmp/plantuml.nvim/ contain auto-refresh script. SVG files in project-folder/umlout/ do NOT contain any injected script. executor.lua remains unmodified to avoid side effects on CreateSVG and CreatePNG.",
       "test-plan": {
-        "unit": ["README.md contains badge for each language (zh-TW, zh-CN, ja, ko, es, fr, pt-BR, it, id-ID, de, ru, uk, tr, ar, vi)", "All badges have correct links to ./i18n/README.xx.md files"],
-        "integration": [],
-        "e2e-manual": ["Visual inspection: badges display correctly with proper colors and labels"]
+        "unit": [
+          "inject_script() function returns valid SVG string with <script> element",
+          "Script contains EventSource connection to correct /events endpoint",
+          "Script contains location.reload() call in onmessage handler",
+          "Injection handles SVG string with xml declaration correctly",
+          "Original SVG attributes (viewBox, width, height, etc.) are preserved after injection"
+        ],
+        "integration": [
+          "PlantumlPreview generates SVG with injected script in /tmp/plantuml.nvim/",
+          "PlantumlCreateSVG generates clean SVG without script in project-folder/umlout/svg/",
+          "PlantumlCreatePNG generates clean SVG and PNG without script in project-folder/umlout/"
+        ],
+        "e2e-manual": [
+          "Open PlantumlPreview SVG in browser, verify no console errors from injected script",
+          "Run PlantumlCreateSVG, open output file, verify no injected script present"
+        ]
       },
-      "skills": [],
-      "complete": true
+      "skills": ["testing-safe-protocol"],
+      "complete": false
     },
     {
-      "task": "Create README.zh-TW.md (Traditional Chinese)",
-      "description": "Translate README.md to Traditional Chinese with natural local expressions and add multilingual navigation.",
+      "task": "Add BufWritePost autocommand for SVG preview auto-refresh",
+      "description": "Register BufWritePost autocommand to regenerate SVG and trigger browser refresh when user saves .puml or .uml buffer during active SVG preview.",
       "steps": [
         {
           "step": 1,
-          "description": "Translate all content to Traditional Chinese"
+          "description": "Track SVG preview state (active/inactive) in preview.lua module"
         },
         {
           "step": 2,
-          "description": "Add complete multilingual navigation badges"
+          "description": "Create register_svg_autocmd() function for BufWritePost on .puml/.uml files"
         },
         {
           "step": 3,
-          "description": "Create file at ./i18n/README.zh-TW.md"
+          "description": "Autocmd handler regenerates preview SVG in /tmp/plantuml.nvim/, not project output"
+        },
+        {
+          "step": 4,
+          "description": "Clean up autocmd when preview is stopped or buffer is closed"
         }
       ],
-      "acceptance-criteria": "File ./i18n/README.zh-TW.md exists with full Traditional Chinese translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
+      "acceptance-criteria": "BufWritePost autocommand is registered when SVG preview starts. Saving .puml or .uml file triggers preview SVG regeneration in /tmp/plantuml.nvim/. Autocommand is cleaned up when preview stops. PlantumlCreateSVG/PNG/UTXT are NOT triggered by the autocommand.",
       "test-plan": {
-        "unit": ["File exists at ./i18n/README.zh-TW.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
+        "unit": [
+          "register_svg_autocmd() creates exactly one BufWritePost autocommand with correct pattern (*.puml,*.uml)",
+          "Autocmd is stored and can be cleared by augroup name",
+          "Preview state flag toggles correctly on start/stop"
+        ],
+        "integration": [
+          "Calling preview_svg() registers the autocmd and sets preview state to active",
+          "BufWritePost event triggers SVG regeneration in /tmp/plantuml.nvim/ when preview is active",
+          "BufWritePost event does NOT trigger regeneration when preview is inactive",
+          "BufWritePost event does NOT trigger PlantumlCreateSVG/PNG/UTXT functions",
+          "Closing preview window clears the autocmd and preview state"
+        ],
+        "e2e-manual": [
+          "Run :PlantumlPreview, edit and save .puml file, verify browser auto-refreshes with updated diagram"
+        ]
       },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.zh-CN.md (Simplified Chinese)",
-      "description": "Translate README.md to Simplified Chinese with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Simplified Chinese"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.zh-CN.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.zh-CN.md exists with full Simplified Chinese translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.zh-CN.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.ja.md (Japanese)",
-      "description": "Translate README.md to Japanese with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Japanese"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.ja.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.ja.md exists with full Japanese translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.ja.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.ko.md (Korean)",
-      "description": "Translate README.md to Korean with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Korean"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.ko.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.ko.md exists with full Korean translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.ko.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.es.md (Spanish)",
-      "description": "Translate README.md to Spanish with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Spanish"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.es.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.es.md exists with full Spanish translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.es.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.fr.md (French)",
-      "description": "Translate README.md to French with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to French"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.fr.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.fr.md exists with full French translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.fr.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.pt-BR.md (Portuguese Brazil)",
-      "description": "Translate README.md to Brazilian Portuguese with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Brazilian Portuguese"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.pt-BR.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.pt-BR.md exists with full Brazilian Portuguese translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.pt-BR.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.it.md (Italian)",
-      "description": "Translate README.md to Italian with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Italian"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.it.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.it.md exists with full Italian translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.it.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.id-ID.md (Indonesian)",
-      "description": "Translate README.md to Indonesian with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Indonesian"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.id-ID.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.id-ID.md exists with full Indonesian translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.id-ID.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.de.md (German)",
-      "description": "Translate README.md to German with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to German"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.de.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.de.md exists with full German translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.de.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.ru.md (Russian)",
-      "description": "Translate README.md to Russian with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Russian"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.ru.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.ru.md exists with full Russian translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.ru.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-{
-      "task": "Create README.uk.md (Ukrainian)",
-      "description": "Translate README.md to Ukrainian with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Ukrainian"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.uk.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.uk.md exists with full Ukrainian translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.uk.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.tr.md (Turkish)",
-      "description": "Translate README.md to Turkish with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Turkish"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.tr.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.tr.md exists with full Turkish translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.tr.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.ar.md (Arabic)",
-      "description": "Translate README.md to Arabic with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Arabic"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.ar.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.ar.md exists with full Arabic translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.ar.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
-    },
-    {
-      "task": "Create README.vi.md (Vietnamese)",
-      "description": "Translate README.md to Vietnamese with natural local expressions and add multilingual navigation.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Translate all content to Vietnamese"
-        },
-        {
-          "step": 2,
-          "description": "Add complete multilingual navigation badges"
-        },
-        {
-          "step": 3,
-          "description": "Create file at ./i18n/README.vi.md"
-        }
-      ],
-      "acceptance-criteria": "File ./i18n/README.vi.md exists with full Vietnamese translation using natural local expressions. Contains all 15 language navigation badges with correct links.",
-      "test-plan": {
-        "unit": ["File exists at ./i18n/README.vi.md", "File contains complete translation of all sections", "All code blocks and technical terms remain in English", "Language navigation badges present with correct links"],
-        "integration": [],
-        "e2e-manual": ["Native speaker review: translation is natural and accurate"]
-      },
-      "skills": [],
-      "complete": true
+      "skills": ["testing-safe-protocol", "systematic-debugging"],
+      "complete": false
     }
   ]
 }
