@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 /**
- * Simple static file server for PlantUML preview
- * Serves files from /tmp/plantuml.nvim/ with CORS headers
- * Provides SSE endpoint for real-time refresh notifications
+ * HTTP notification server for PlantUML preview
+ * 
+ * This server provides:
+ * - HTML page with SVG preview at GET /
+ * - Cached SVG content at GET /svg
+ * - Real-time updates via SSE at GET /events
+ * - Update notifications via POST /update
+ * - Shutdown notifications via POST /shutdown
+ * 
+ * Architecture: HTTP notification instead of file watching
  */
 
 const http = require('http');
@@ -12,19 +19,6 @@ const path = require('path');
 const SERVE_DIR = '/tmp/plantuml.nvim';
 const DEFAULT_PORT = 8912;
 const MAX_PORT = 8099;
-
-// Connected SSE clients
-const sseClients = new Set();
-
-// File watcher instance
-let fileWatcher = null;
-
-// Get port from command line argument
-let port = DEFAULT_PORT;
-const portIndex = process.argv.indexOf('--port');
-if (portIndex !== -1 && process.argv[portIndex + 1]) {
-  port = parseInt(process.argv[portIndex + 1], 10);
-}
 
 // MIME types for common file formats
 const MIME_TYPES = {
@@ -38,6 +32,23 @@ const MIME_TYPES = {
   '.utxt': 'text/plain',
 };
 
+// Connected SSE clients
+const sseClients = new Set();
+
+// Server state
+const state = {
+  filename: null,
+  svgContent: '',
+  lastUpdate: null
+};
+
+// Get port from command line argument
+let port = DEFAULT_PORT;
+const portIndex = process.argv.indexOf('--port');
+if (portIndex !== -1 && process.argv[portIndex + 1]) {
+  port = parseInt(process.argv[portIndex + 1], 10);
+}
+
 /**
  * Get MIME type for a file extension
  * @param {string} ext - File extension (with dot)
@@ -45,6 +56,114 @@ const MIME_TYPES = {
  */
 function getMimeType(ext) {
   return MIME_TYPES[ext.toLowerCase()] || 'application/octet-stream';
+}
+
+/**
+ * Generate HTML page with filename title, centered SVG container, time display, and save reminder
+ * @returns {string} HTML content
+ */
+function generateHTML() {
+  const filename = state.filename || 'PlantUML Preview';
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${filename}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .filename {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .time-display {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    .reminder {
+      font-size: 14px;
+      color: #888;
+      font-style: italic;
+    }
+    #svg-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+    #svg-container svg {
+      max-width: 100%;
+      height: auto;
+      background-color: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="filename">${filename}</div>
+    <div class="time-display" id="last-update">Last update: <span id="time-value">Never</span></div>
+    <div class="reminder">💾 Save your buffer to automatically update the diagram</div>
+  </div>
+  <div id="svg-container">
+    ${state.svgContent}
+  </div>
+  
+  <script>
+    // Connect to SSE endpoint for real-time updates
+    const eventSource = new EventSource('/events');
+    
+    eventSource.addEventListener('connected', function(e) {
+      console.log('SSE connected');
+    });
+    
+    eventSource.addEventListener('update', function(e) {
+      console.log('Update event received');
+      // Fetch updated SVG content
+      fetch('/svg')
+        .then(response => response.text())
+        .then(svg => {
+          document.getElementById('svg-container').innerHTML = svg;
+          updateTime();
+        })
+        .catch(err => console.error('Failed to fetch SVG:', err));
+    });
+    
+    eventSource.addEventListener('shutdown', function(e) {
+      console.log('Shutdown event received');
+      // Attempt to close the browser window
+      window.close();
+      // Fallback: display shutdown message
+      document.body.innerHTML = '<h1 style="text-align:center;margin-top:50px;">Server has been shutdown</h1>';
+    });
+    
+    eventSource.onerror = function(e) {
+      console.error('SSE error:', e);
+    };
+    
+    function updateTime() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString();
+      document.getElementById('time-value').textContent = timeString;
+    }
+    
+    // Update time display every second
+    setInterval(updateTime, 1000);
+    updateTime();
+  </script>
+</body>
+</html>`;
 }
 
 /**
@@ -60,8 +179,8 @@ function handleSSEConnection(res) {
     'Access-Control-Allow-Origin': '*',
   });
 
-  // Send initial keep-alive comment
-  res.write(': connected\n\n');
+  // Send initial connection event
+  res.write('event: connected\ndata: connected\n\n');
 
   // Add client to set
   sseClients.add(res);
@@ -76,17 +195,18 @@ function handleSSEConnection(res) {
 }
 
 /**
- * Broadcast refresh event to all connected SSE clients
- * @param {string} filename - Name of the changed file
+ * Broadcast event to all connected SSE clients
+ * @param {string} eventType - Event type (update or shutdown)
+ * @param {string} data - Event data
  */
-function broadcastRefresh(filename) {
+function broadcastEvent(eventType, data = '') {
   if (sseClients.size === 0) {
     return;
   }
 
-  console.log(`Broadcasting refresh to ${sseClients.size} clients for file: ${filename}`);
+  console.log(`Broadcasting ${eventType} to ${sseClients.size} clients`);
 
-  const message = 'data: refresh\n\n';
+  const message = `event: ${eventType}\ndata: ${data}\n\n`;
 
   sseClients.forEach((client) => {
     try {
@@ -99,115 +219,233 @@ function broadcastRefresh(filename) {
 }
 
 /**
- * Start file watcher for the serve directory
+ * Handle POST /update request to update state and notify clients
+ * @param {http.IncomingMessage} req - HTTP request object
+ * @param {http.ServerResponse} res - HTTP response object
  */
-function startFileWatcher() {
-  // Ensure directory exists
-  if (!fs.existsSync(SERVE_DIR)) {
-    fs.mkdirSync(SERVE_DIR, { recursive: true });
-    console.log(`Created directory: ${SERVE_DIR}`);
+function handleUpdateRequest(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
   }
 
-  // Watch for file changes
-  fileWatcher = fs.watch(SERVE_DIR, (eventType, filename) => {
-    if (!filename) {
-      return;
-    }
+  // Only accept POST
+  if (req.method !== 'POST') {
+    res.writeHead(405);
+    res.end('Method Not Allowed');
+    return;
+  }
 
-    // Only broadcast for SVG files
-    if (filename.endsWith('.svg')) {
-      broadcastRefresh(filename);
-    }
+  // Read request body
+  let body = '';
+  req.on('data', (chunk) => {
+    body += chunk.toString();
   });
 
-  fileWatcher.on('error', (err) => {
-    console.error(`File watcher error: ${err.message}`);
-  });
+  req.on('end', () => {
+    try {
+      const data = JSON.parse(body);
+      
+      // Validate required fields
+      if (!data.filename || !data.filepath) {
+        res.writeHead(400);
+        res.end('Bad Request: filename and filepath are required');
+        return;
+      }
 
-  console.log(`File watcher started on ${SERVE_DIR}`);
+      // Check if file exists
+      if (!fs.existsSync(data.filepath)) {
+        res.writeHead(404);
+        res.end('Not Found: file does not exist');
+        return;
+      }
+
+      // Read SVG content from file
+      const svgContent = fs.readFileSync(data.filepath, 'utf8');
+      
+      // Update server state
+      state.filename = data.filename;
+      state.svgContent = svgContent;
+      state.lastUpdate = Date.now();
+
+      console.log(`State updated: ${data.filename}`);
+
+      // Broadcast update event to all connected SSE clients
+      broadcastEvent('update', data.filename);
+
+      res.writeHead(200);
+      res.end('OK');
+    } catch (err) {
+      console.error('Error handling update request:', err);
+      res.writeHead(500);
+      res.end('Internal Server Error');
+    }
+  });
 }
 
 /**
- * Create HTTP server
+ * Handle POST /shutdown request to notify all clients
+ * @param {http.IncomingMessage} req - HTTP request object
+ * @param {http.ServerResponse} res - HTTP response object
+ */
+function handleShutdownRequest(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  // Only accept POST
+  if (req.method !== 'POST') {
+    res.writeHead(405);
+    res.end('Method Not Allowed');
+    return;
+  }
+
+  console.log('Shutdown request received');
+
+  // Broadcast shutdown event to all connected SSE clients
+  broadcastEvent('shutdown', 'server shutdown');
+
+  res.writeHead(200);
+  res.end('OK');
+}
+
+/**
+ * Handle static file requests
+ * @param {string} urlPath - URL path
+ * @param {http.IncomingMessage} req - HTTP request object
+ * @param {http.ServerResponse} res - HTTP response object
+ */
+function handleStaticFile(urlPath, req, res) {
+  // Decode URL-encoded characters
+  try {
+    urlPath = decodeURIComponent(urlPath);
+  } catch (e) {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
+
+  // Security: prevent directory traversal
+  if (urlPath.includes('..')) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+
+  // Build file path
+  let filePath = path.join(SERVE_DIR, urlPath);
+
+  // If path is a directory, try index.html or return 404
+  const stat = fs.statSync(filePath, { throwIfNoEntry: false });
+  if (stat && stat.isDirectory()) {
+    filePath = path.join(filePath, 'index.html');
+  }
+
+  // Check if file exists
+  fs.access(filePath, fs.constants.R_OK, (err) => {
+    if (err) {
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
+
+    // Get file extension and MIME type
+    const ext = path.extname(filePath);
+    const mimeType = getMimeType(ext);
+
+    // Set CORS headers for local development
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle OPTIONS preflight request
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // Set content type
+    res.setHeader('Content-Type', mimeType);
+
+    // Read and serve the file
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('Internal Server Error');
+        return;
+      }
+
+      res.writeHead(200);
+      res.end(data);
+    });
+  });
+}
+
+/**
+ * Create HTTP server with routing for special endpoints
  * @param {number} port - Port to listen on
  * @returns {http.Server} HTTP server instance
  */
 function createServer(port) {
   const server = http.createServer((req, res) => {
-    // Handle SSE endpoint
-    if (req.url.split('?')[0] === '/events' && req.method === 'GET') {
+    // Parse URL path (remove query string)
+    const urlPath = req.url.split('?')[0];
+
+    // Route to appropriate handler
+    if (urlPath === '/' && req.method === 'GET') {
+      // Serve HTML page
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.writeHead(200);
+      res.end(generateHTML());
+      return;
+    }
+
+    if (urlPath === '/svg' && req.method === 'GET') {
+      // Serve cached SVG content from state
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.writeHead(200);
+      res.end(state.svgContent);
+      return;
+    }
+
+    if (urlPath === '/events' && req.method === 'GET') {
+      // Handle SSE connection
       handleSSEConnection(res);
       return;
     }
 
-    // Parse URL and remove query string
-    let urlPath = req.url.split('?')[0];
-
-    // Decode URL-encoded characters
-    try {
-      urlPath = decodeURIComponent(urlPath);
-    } catch (e) {
-      // Invalid URL encoding
-      res.writeHead(400);
-      res.end('Bad Request');
+    if (urlPath === '/update') {
+      // Handle update notification
+      handleUpdateRequest(req, res);
       return;
     }
 
-    // Security: prevent directory traversal
-    if (urlPath.includes('..')) {
-      res.writeHead(403);
-      res.end('Forbidden');
+    if (urlPath === '/shutdown') {
+      // Handle shutdown notification
+      handleShutdownRequest(req, res);
       return;
     }
 
-    // Build file path
-    let filePath = path.join(SERVE_DIR, urlPath);
-
-    // If path is a directory, try index.html or return 404
-    const stat = fs.statSync(filePath, { throwIfNoEntry: false });
-    if (stat && stat.isDirectory()) {
-      filePath = path.join(filePath, 'index.html');
-    }
-
-    // Check if file exists
-    fs.access(filePath, fs.constants.R_OK, (err) => {
-      if (err) {
-        res.writeHead(404);
-        res.end('Not Found');
-        return;
-      }
-
-      // Get file extension and MIME type
-      const ext = path.extname(filePath);
-      const mimeType = getMimeType(ext);
-
-      // Set CORS headers for local development
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-      // Handle OPTIONS preflight request
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        res.end();
-        return;
-      }
-
-      // Set content type
-      res.setHeader('Content-Type', mimeType);
-
-      // Read and serve the file
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          res.writeHead(500);
-          res.end('Internal Server Error');
-          return;
-        }
-
-        res.writeHead(200);
-        res.end(data);
-      });
-    });
+    // Serve static files from SERVE_DIR
+    handleStaticFile(urlPath, req, res);
   });
 
   return server;
@@ -240,11 +478,14 @@ function tryStartServer(startPort, maxPort, callback) {
   });
 }
 
+// Ensure temp directory exists
+if (!fs.existsSync(SERVE_DIR)) {
+  fs.mkdirSync(SERVE_DIR, { recursive: true });
+  console.log(`Created directory: ${SERVE_DIR}`);
+}
+
 // Start the server
 tryStartServer(port, MAX_PORT, (server, actualPort) => {
-  // Start file watcher
-  startFileWatcher();
-
   // Output port for parent process to read
   console.log(`PORT:${actualPort}`);
 });
@@ -252,10 +493,12 @@ tryStartServer(port, MAX_PORT, (server, actualPort) => {
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
   console.log('Received SIGTERM, shutting down...');
+  broadcastEvent('shutdown', 'server shutdown');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('Received SIGINT, shutting down...');
+  broadcastEvent('shutdown', 'server shutdown');
   process.exit(0);
 });

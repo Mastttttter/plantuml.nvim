@@ -61,7 +61,7 @@
         ]
       },
       "skills": ["tdd-workflow", "testing-safe-protocol"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Add HTTP client module for server communication",
