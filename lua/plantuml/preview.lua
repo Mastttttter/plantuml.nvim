@@ -4,6 +4,7 @@
 local M = {}
 
 local api = vim.api
+local uv = vim.loop
 local executor = require("plantuml.executor")
 local util = require("plantuml.util")
 
@@ -14,6 +15,75 @@ local state = {
   source_bufnr = nil,
   autocmd_id = nil,
 }
+
+--- Inject SSE auto-refresh script into SVG file
+--- This is only called for preview SVG files, not for exported files
+--- @param svg_path string Path to the SVG file to inject script into
+--- @param port number Server port for SSE connection
+local function inject_script(svg_path, port)
+  -- Read the SVG file
+  local fd, err = uv.fs_open(svg_path, "r", 438)
+  if not fd then
+    vim.notify("plantuml.nvim: Failed to open SVG for injection: " .. (err or "unknown error"), vim.log.levels.WARN)
+    return false
+  end
+
+  local stat = uv.fs_fstat(fd)
+  if not stat then
+    uv.fs_close(fd)
+    return false
+  end
+
+  local data = uv.fs_read(fd, stat.size, 0)
+  uv.fs_close(fd)
+
+  if not data then
+    return false
+  end
+
+  -- Create the SSE listener script
+  -- This script connects to the /events endpoint and reloads on refresh
+  local script = string.format([[
+<script type="text/javascript">
+(function() {
+  var eventSource = new EventSource('http://localhost:%d/events');
+  eventSource.onmessage = function(e) {
+    if (e.data === 'refresh') {
+      location.reload();
+    }
+  };
+  eventSource.onerror = function() {
+    // Reconnect after 1 second on error
+    setTimeout(function() {
+      location.reload();
+    }, 1000);
+  };
+})();
+</script>
+]], port)
+
+  -- Insert script before closing </svg> tag
+  local injected_svg = data:gsub("</svg>", script .. "</svg>")
+
+  -- Check if injection was successful
+  if injected_svg == data then
+    -- No </svg> tag found or injection failed
+    vim.notify("plantuml.nvim: Could not find </svg> tag for script injection", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Write the modified SVG back
+  local fd2, err2 = uv.fs_open(svg_path, "w", 438)
+  if not fd2 then
+    vim.notify("plantuml.nvim: Failed to write injected SVG: " .. (err2 or "unknown error"), vim.log.levels.WARN)
+    return false
+  end
+
+  uv.fs_write(fd2, injected_svg, 0)
+  uv.fs_close(fd2)
+
+  return true
+end
 
 --- Find existing buffer by name
 --- @param name string Buffer name to search for
@@ -300,6 +370,10 @@ function M.preview_svg()
     if not success then
       return
     end
+
+    -- Inject auto-refresh script into SVG (only for preview, not for export)
+    local server_port = server.get_port() or 8912
+    inject_script(output_path, server_port)
 
     -- Start server if not running
     server.start_server(function(url)

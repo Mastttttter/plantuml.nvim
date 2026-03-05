@@ -77,7 +77,7 @@
         ]
       },
       "skills": ["testing-safe-protocol"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Add BufWritePost autocommand for SVG preview auto-refresh",
