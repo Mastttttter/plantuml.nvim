@@ -429,17 +429,20 @@ function M.preview_svg()
       state.svg_current_filename = info.name
       M.register_svg_autocmd()
 
-      -- Notify HTTP client to refresh browser
-      local port = server.get_port()
-      if port then
-        http_client.notify_update("localhost", port, info.name .. ".svg", output_path, function(success, _)
-          vim.schedule(function()
-            if not success then
-              vim.notify("plantuml.nvim: Failed to notify preview server", vim.log.levels.WARN)
-            end
+      -- Small delay to ensure server is fully ready to accept connections
+      vim.defer_fn(function()
+        -- Notify HTTP client to refresh browser
+        local port = server.get_port()
+        if port then
+          http_client.notify_update("localhost", port, info.name .. ".svg", output_path, function(success, _)
+            vim.schedule(function()
+              if not success then
+                vim.notify("plantuml.nvim: Failed to notify preview server", vim.log.levels.WARN)
+              end
+            end)
           end)
-        end)
-      end
+        end
+      end, 200) -- 200ms delay for server to be fully ready
 
       -- Open browser only if not already opened
       -- Per README: "the server should change to display the new diagram" without opening new tabs

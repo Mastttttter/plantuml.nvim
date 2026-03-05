@@ -7,15 +7,18 @@ local M = {}
 --- @param stderr string Error message from curl
 --- @param code number Exit code
 --- @param callback function Callback function(false, error_msg)
-local function handle_error(stderr, code, callback)
+--- @param silent boolean If true, don't show notification (for retries)
+local function handle_error(stderr, code, callback, silent)
   local error_msg = stderr
   if error_msg == "" or not error_msg then
     error_msg = "HTTP request failed with exit code " .. code
   end
-  vim.notify(
-    "plantuml.nvim: " .. error_msg,
-    vim.log.levels.ERROR
-  )
+  if not silent then
+    vim.notify(
+      "plantuml.nvim: " .. error_msg,
+      vim.log.levels.ERROR
+    )
+  end
   callback(false, error_msg)
 end
 
@@ -41,26 +44,36 @@ local function build_curl_cmd(url, body)
 
   -- Add timeout options and URL at the end
   table.insert(cmd, "--connect-timeout")
-  table.insert(cmd, "5")     -- 5 second connection timeout
+  table.insert(cmd, "2")     -- 2 second connection timeout
   table.insert(cmd, "--max-time")
-  table.insert(cmd, "10")    -- 10 second max request time
+  table.insert(cmd, "5")     -- 5 second max request time
   table.insert(cmd, url)
 
   return cmd
 end
 
---- Send HTTP POST request asynchronously
+--- Send HTTP POST request asynchronously with retry support
 --- @param url string Full URL to send request to
 --- @param body string|nil JSON body string (optional)
 --- @param callback function Callback function(success, error_or_nil)
-local function http_post(url, body, callback)
+--- @param retries number Number of retries remaining (default 3)
+local function http_post(url, body, callback, retries)
+  retries = retries or 3
   local cmd = build_curl_cmd(url, body)
 
   -- Use vim.system if available (Neovim 0.10+)
   if vim.system then
     vim.system(cmd, { text = true }, function(result)
       if result.code ~= 0 then
-        handle_error(result.stderr, result.code, callback)
+        -- Check if it's a connection error and we have retries left
+        if retries > 1 and (result.stderr:match("Could not connect") or result.stderr:match("Connection refused")) then
+          -- Retry after a short delay
+          vim.defer_fn(function()
+            http_post(url, body, callback, retries - 1)
+          end, 300)
+        else
+          handle_error(result.stderr, result.code, callback, retries > 1)
+        end
       else
         callback(true, nil)
       end
@@ -82,9 +95,17 @@ local function http_post(url, body, callback)
       handle:close()
 
       if code ~= 0 then
-        vim.schedule(function()
-          handle_error(stderr_data, code, callback)
-        end)
+        -- Check if it's a connection error and we have retries left
+        if retries > 1 and (stderr_data:match("Could not connect") or stderr_data:match("Connection refused")) then
+          -- Retry after a short delay
+          vim.defer_fn(function()
+            http_post(url, body, callback, retries - 1)
+          end, 300)
+        else
+          vim.schedule(function()
+            handle_error(stderr_data, code, callback, retries > 1)
+          end)
+        end
       else
         vim.schedule(function()
           callback(true, nil)
@@ -123,7 +144,7 @@ function M.notify_update(host, port, filename, filepath, callback)
     filepath
   )
 
-  http_post(url, body, callback)
+  http_post(url, body, callback, 3)
 end
 
 --- Send shutdown notification to preview server
@@ -133,7 +154,7 @@ end
 function M.notify_shutdown(host, port, callback)
   local url = string.format("http://%s:%d/shutdown", host, port)
 
-  http_post(url, nil, callback)
+  http_post(url, nil, callback, 3)
 end
 
 return M
