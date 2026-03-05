@@ -152,7 +152,7 @@
         ]
       },
       "skills": ["tdd-workflow", "systematic-debugging"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Update server tests for new architecture",
