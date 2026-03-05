@@ -100,7 +100,7 @@
         "e2e-manual": []
       },
       "skills": ["tdd-workflow"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Refactor preview.lua to use HTTP notification",
