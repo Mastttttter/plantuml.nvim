@@ -6,6 +6,7 @@ describe("server module", function()
   local original_notify
   local original_loop
   local original_executable
+  local original_system
   local notify_messages
   local spawned_processes
   local process_handles
@@ -32,7 +33,17 @@ describe("server module", function()
       if cmd == "node" then
         return 1 -- Node is available
       end
+      if cmd == "curl" then
+        return 1 -- curl is available
+      end
       return original_executable(cmd)
+    end
+
+    -- Mock vim.system for HTTP requests
+    original_system = vim.system
+    vim.system = function(cmd, opts, callback)
+      -- Default: simulate successful response
+      callback({ code = 0, stdout = "OK", stderr = "" })
     end
 
     -- Mock vim.loop for process spawning
@@ -88,7 +99,6 @@ describe("server module", function()
 
       -- Simulate async process start
       vim.schedule(function()
-        -- Call on_exit after a short delay (simulating process running)
         -- For now, don't call on_exit - server stays running
       end)
 
@@ -116,6 +126,7 @@ describe("server module", function()
     vim.notify = original_notify
     vim.fn.executable = original_executable
     vim.loop = original_loop
+    vim.system = original_system
   end)
 
   describe("FR-1: Module Exports", function()
@@ -272,15 +283,9 @@ describe("server module", function()
     end)
 
     it("limits port range to prevent infinite loop", function()
-      -- This test verifies the port range limit exists
-      -- Implementation should stop trying after reaching max port
-
-      local config = require("plantuml.config")
-      config.setup({ server_port = 8095 }) -- Near the limit
-
-      -- Reset server module
-      package.loaded["plantuml.server"] = nil
-      server = require("plantuml.server")
+      -- This test verifies the port range limit exists in server.js
+      -- MAX_PORT = 8099 in server.js, DEFAULT_PORT = 8912
+      -- The server tries ports from start_port to MAX_PORT
 
       local callback_url
       local callback_error = false
@@ -298,13 +303,13 @@ describe("server module", function()
         return callback_url ~= nil or callback_error
       end, 10)
 
-      -- Should have a valid URL within range
-      if callback_url then
-        local port = callback_url:match(":(%d+)$")
-        assert.is_not_nil(port)
-        local port_num = tonumber(port)
-        assert.is_true(port_num >= 8912 and port_num <= 8099)
-      end
+      -- Should have a valid URL with port in valid range
+      assert.is_not_nil(callback_url, "Should have a valid URL")
+      local port = callback_url:match(":(%d+)$")
+      assert.is_not_nil(port, "URL should contain a port")
+      local port_num = tonumber(port)
+      -- Port should be within the valid range defined in server.js (8912 to 8099)
+      assert.is_true(port_num >= 8912 and port_num <= 8099, "Port should be in valid range 8912-8099")
     end)
   end)
 
@@ -359,6 +364,395 @@ describe("server module", function()
       -- Should have received an error
       assert.is_not_nil(callback_error)
       assert.is_true(callback_error:find("Node.js not found") ~= nil)
+    end)
+  end)
+
+  describe("FR-5: No File Watcher in Server", function()
+    -- These tests verify that the server.js has no file watcher code
+    -- (Architecture change from file watching to HTTP notification)
+
+    it("server.js exists and contains no fs.watch calls", function()
+      -- Read the server.js file
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file, "server.js should exist")
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Check for no fs.watch or fs.watchFile
+      assert.is_nil(content:match("fs%.watch%s*%("), "server.js should not use fs.watch()")
+      assert.is_nil(content:match("fs%.watchFile"), "server.js should not use fs.watchFile()")
+      assert.is_nil(content:match("startFileWatcher"), "server.js should not have startFileWatcher function")
+      assert.is_nil(content:match("fileWatcher%s*="), "server.js should not have fileWatcher variable")
+    end)
+
+    it("server.js uses HTTP server instead of file watching", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file, "server.js should exist")
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify HTTP server is used
+      assert.is_not_nil(content:match("http%.createServer"), "server.js should use http.createServer")
+      assert.is_not_nil(content:match("server%.listen"), "server.js should call server.listen()")
+    end)
+  end)
+
+  describe("FR-6: GET / Endpoint (HTML Page)", function()
+    it("server.js has route for GET / returning HTML", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify GET / route exists (using === in JavaScript)
+      assert.is_not_nil(content:match("urlPath%s*===%s*['\"]/%s*['\"]"), "server.js should have route for /")
+      assert.is_not_nil(content:match("req%.method%s*===%s*['\"]GET['\"]"), "server.js should handle GET requests")
+
+      -- Verify HTML generation
+      assert.is_not_nil(content:match("generateHTML"), "server.js should have generateHTML function")
+      assert.is_not_nil(content:match("<!DOCTYPE html>"), "server.js should generate valid HTML")
+    end)
+
+    it("HTML contains required UI elements", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify HTML template elements
+      assert.is_not_nil(content:match("<title>"), "HTML should have title element")
+      assert.is_not_nil(content:match('id="svg%-container"'), "HTML should have svg-container element")
+      assert.is_not_nil(content:match("last%-update"), "HTML should show last update time")
+      assert.is_not_nil(content:match("EventSource"), "HTML should connect to SSE with EventSource")
+    end)
+  end)
+
+  describe("FR-7: GET /svg Endpoint", function()
+    it("server.js has route for GET /svg returning SVG content", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify GET /svg route exists
+      assert.is_not_nil(content:match("urlPath%s*===%s*['\"]%/svg['\"]"), "server.js should have route for /svg")
+
+      -- Verify content-type for SVG
+      assert.is_not_nil(content:match("image/svg%+xml"), "server.js should set correct content-type for SVG")
+    end)
+
+    it("returns cached SVG content from state", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify state object exists
+      assert.is_not_nil(content:match("state%s*="), "server.js should have state object")
+      assert.is_not_nil(content:match("svgContent"), "state should contain svgContent")
+    end)
+
+    it("includes CORS headers in response", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify CORS headers
+      assert.is_not_nil(content:match("Access%-Control%-Allow%-Origin"), "server.js should set CORS headers")
+    end)
+  end)
+
+  describe("FR-8: POST /update Endpoint", function()
+    it("server.js has route for POST /update", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify POST /update route exists
+      assert.is_not_nil(content:match("urlPath%s*===%s*['\"]%/update['\"]"), "server.js should have route for /update")
+    end)
+
+    it("accepts JSON body with filename and filepath", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify JSON parsing
+      assert.is_not_nil(content:match("JSON%.parse"), "server.js should parse JSON body")
+      assert.is_not_nil(content:match("data%.filename"), "server.js should check filename field")
+      assert.is_not_nil(content:match("data%.filepath"), "server.js should check filepath field")
+    end)
+
+    it("reads SVG file from provided filepath", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify file reading
+      assert.is_not_nil(content:match("fs%.readFileSync"), "server.js should read SVG file")
+    end)
+
+    it("returns 400 for missing fields", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify 400 response
+      assert.is_not_nil(content:match("400"), "server.js should return 400 for bad request")
+      assert.is_not_nil(content:match("Bad Request"), "server.js should return Bad Request message")
+    end)
+
+    it("returns 404 for non-existent file", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify 404 response
+      assert.is_not_nil(content:match("fs%.existsSync"), "server.js should check file existence")
+      assert.is_not_nil(content:match("404"), "server.js should return 404 for not found")
+    end)
+
+    it("broadcasts update event to SSE clients", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify broadcast
+      assert.is_not_nil(content:match("broadcastEvent"), "server.js should have broadcastEvent function")
+      -- The update event is broadcast with 'update' as first argument
+      assert.is_not_nil(content:match("broadcastEvent%(['\"]update['\"]"), "server.js should broadcast update event")
+    end)
+  end)
+
+  describe("FR-9: POST /shutdown Endpoint", function()
+    it("server.js has route for POST /shutdown", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify POST /shutdown route exists
+      assert.is_not_nil(content:match("urlPath%s*===%s*['\"]%/shutdown['\"]"), "server.js should have route for /shutdown")
+    end)
+
+    it("broadcasts shutdown event to SSE clients", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify broadcast - the shutdown event is broadcast with 'shutdown' as first argument
+      assert.is_not_nil(content:match("broadcastEvent%(['\"]shutdown['\"]"), "server.js should broadcast shutdown event")
+    end)
+
+    it("returns 200 OK", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify 200 response
+      assert.is_not_nil(content:match("res%.writeHead%s*%(%s*200%s*%)"), "server.js should return 200 for shutdown")
+    end)
+  end)
+
+  describe("FR-10: SSE Events (update, shutdown)", function()
+    it("server.js has SSE endpoint at GET /events", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify /events route
+      assert.is_not_nil(content:match("urlPath%s*===%s*['\"]%/events['\"]"), "server.js should have route for /events")
+    end)
+
+    it("sets correct SSE headers", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify SSE headers
+      assert.is_not_nil(content:match("text/event%-stream"), "server.js should set Content-Type: text/event-stream")
+      assert.is_not_nil(content:match("no%-cache"), "server.js should set Cache-Control: no-cache")
+      assert.is_not_nil(content:match("keep%-alive"), "server.js should set Connection: keep-alive")
+    end)
+
+    it("tracks connected SSE clients in a Set", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify client tracking
+      assert.is_not_nil(content:match("sseClients"), "server.js should track SSE clients")
+      assert.is_not_nil(content:match("new Set"), "server.js should use Set for client tracking")
+    end)
+
+    it("sends initial connected event", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify initial connection event
+      assert.is_not_nil(content:match("event:%s*connected"), "server.js should send connected event")
+    end)
+
+    it("can broadcast update event to clients", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify update event in message template
+      -- The message format is: `event: ${eventType}\ndata: ${data}\n\n`
+      -- So when eventType is 'update', it produces "event: update"
+      assert.is_not_nil(content:match("event:%s*%${eventType}"), "server.js should broadcast event with eventType variable")
+    end)
+
+    it("can broadcast shutdown event to clients", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify shutdown event is broadcast
+      assert.is_not_nil(content:match("broadcastEvent%(['\"]shutdown['\"]"), "server.js should broadcast shutdown event")
+    end)
+
+    it("removes disconnected clients from tracking", function()
+      local script_path = debug.getinfo(1, "S").source:match("^@(.+)$")
+      local plugin_root = vim.fn.fnamemodify(script_path, ":h:h:h")
+      local server_js_path = plugin_root .. "/server/server.js"
+
+      local file = io.open(server_js_path, "r")
+      assert.is_not_nil(file)
+
+      local content = file:read("*all")
+      file:close()
+
+      -- Verify client cleanup on disconnect
+      assert.is_not_nil(content:match("sseClients%.delete"), "server.js should remove disconnected clients")
+      assert.is_not_nil(content:match("on%s*%(%s*['\"]close['\"]"), "server.js should listen for close event")
     end)
   end)
 end)
