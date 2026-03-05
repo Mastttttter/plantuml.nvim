@@ -98,32 +98,12 @@ function M.start_server(callback)
 
   -- Get configuration
   local cfg = config.get()
-  local start_port = cfg.server_port or 8912
-  local max_port = start_port + 20 -- Allow up to 20 port increments
+  local port = cfg.server_port or 8912 -- Use configured port directly
 
   -- Get server.js path
   local server_js = get_server_js_path()
 
-  -- Find an available port (skip check if port is 0, let OS assign)
-  local port = start_port
-  for p = start_port, max_port do
-    if not is_port_in_use(p) then
-      port = p
-      break
-    end
-    if p == max_port then
-      vim.notify(
-        "plantuml.nvim: No available port found in range " .. start_port .. "-" .. max_port,
-        vim.log.levels.ERROR
-      )
-      if callback then
-        callback(nil, "No available port")
-      end
-      return
-    end
-  end
-
-  -- Spawn the Node.js server
+  -- Spawn the Node.js server (let server.js handle port conflicts)
   local args = { server_js, "--port", tostring(port) }
 
   -- Create pipes for stdout and stderr

@@ -56,3 +56,5 @@ when user change to another plantuml buffer and trigger the :PlantumlPreview cmd
 when the server need to shutdown, user's browser page should close itself
 
 the browser page only update the SVG part, the time part and other essential part of the page, not the entire page.
+
+the default port is 8912
