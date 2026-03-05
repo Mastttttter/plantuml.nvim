@@ -343,9 +343,11 @@ function M.refresh_svg_preview()
     local port = server.get_port()
     if port then
       http_client.notify_update("localhost", port, info.name .. ".svg", output_path, function(success, _)
-        if not success then
-          vim.notify("plantuml.nvim: Failed to notify preview server", vim.log.levels.WARN)
-        end
+        vim.schedule(function()
+          if not success then
+            vim.notify("plantuml.nvim: Failed to notify preview server", vim.log.levels.WARN)
+          end
+        end)
       end)
     end
   end)
@@ -359,9 +361,11 @@ function M.stop_svg_preview()
   local port = server.get_port()
   if port then
     http_client.notify_shutdown("localhost", port, function(success, _)
-      if not success then
-        vim.notify("plantuml.nvim: Failed to notify preview server shutdown", vim.log.levels.WARN)
-      end
+      vim.schedule(function()
+        if not success then
+          vim.notify("plantuml.nvim: Failed to notify preview server shutdown", vim.log.levels.WARN)
+        end
+      end)
     end)
   end
   
@@ -404,7 +408,9 @@ function M.preview_svg()
     -- Start server if not running
     server.start_server(function(url)
       if not url then
-        vim.notify("plantuml.nvim: Failed to start preview server", vim.log.levels.ERROR)
+        vim.schedule(function()
+          vim.notify("plantuml.nvim: Failed to start preview server", vim.log.levels.ERROR)
+        end)
         return
       end
 
@@ -417,9 +423,11 @@ function M.preview_svg()
       local port = server.get_port()
       if port then
         http_client.notify_update("localhost", port, info.name .. ".svg", output_path, function(success, _)
-          if not success then
-            vim.notify("plantuml.nvim: Failed to notify preview server", vim.log.levels.WARN)
-          end
+          vim.schedule(function()
+            if not success then
+              vim.notify("plantuml.nvim: Failed to notify preview server", vim.log.levels.WARN)
+            end
+          end)
         end)
       end
 

@@ -63,19 +63,21 @@ function M.run_plantuml(input, output_path, format, callback)
   local cmd = build_plantuml_cmd(input, output_path, format)
 
   vim.system(cmd, { text = true }, function(result)
-    if result.code ~= 0 then
-      local error_msg = result.stderr
-      if error_msg == "" then
-        error_msg = "PlantUML exited with code " .. result.code
+    vim.schedule(function()
+      if result.code ~= 0 then
+        local error_msg = result.stderr
+        if error_msg == "" then
+          error_msg = "PlantUML exited with code " .. result.code
+        end
+        vim.notify(
+          "plantuml.nvim: PlantUML error (exit code " .. result.code .. "): " .. error_msg,
+          vim.log.levels.ERROR
+        )
+        callback(false, error_msg)
+      else
+        callback(true, result.stdout)
       end
-      vim.notify(
-        "plantuml.nvim: PlantUML error (exit code " .. result.code .. "): " .. error_msg,
-        vim.log.levels.ERROR
-      )
-      callback(false, error_msg)
-    else
-      callback(true, result.stdout)
-    end
+    end)
   end)
 end
 
@@ -98,19 +100,21 @@ function M.run_inkscape(svg_path, png_path, dpi, callback)
   }
 
   vim.system(cmd, { text = true }, function(result)
-    if result.code ~= 0 then
-      local error_msg = result.stderr
-      if error_msg == "" then
-        error_msg = "Inkscape exited with code " .. result.code
+    vim.schedule(function()
+      if result.code ~= 0 then
+        local error_msg = result.stderr
+        if error_msg == "" then
+          error_msg = "Inkscape exited with code " .. result.code
+        end
+        vim.notify(
+          "plantuml.nvim: Inkscape error (exit code " .. result.code .. "): " .. error_msg,
+          vim.log.levels.ERROR
+        )
+        callback(false, error_msg)
+      else
+        callback(true, result.stdout)
       end
-      vim.notify(
-        "plantuml.nvim: Inkscape error (exit code " .. result.code .. "): " .. error_msg,
-        vim.log.levels.ERROR
-      )
-      callback(false, error_msg)
-    else
-      callback(true, result.stdout)
-    end
+    end)
   end)
 end
 

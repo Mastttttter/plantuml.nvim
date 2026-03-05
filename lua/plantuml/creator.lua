@@ -64,15 +64,17 @@ function M.create_svg(callback)
 
   -- Run PlantUML
   executor.run_plantuml(info.fullpath, output_path, "svg", function(success, output)
-    if success then
-      vim.notify(
-        "plantuml.nvim: SVG created: " .. output_path,
-        vim.log.levels.INFO
-      )
-    end
-    if callback then
-      callback(success)
-    end
+    vim.schedule(function()
+      if success then
+        vim.notify(
+          "plantuml.nvim: SVG created: " .. output_path,
+          vim.log.levels.INFO
+        )
+      end
+      if callback then
+        callback(success)
+      end
+    end)
   end)
 end
 
@@ -126,15 +128,17 @@ function M.create_png(callback)
     local cfg = config.get()
     local dpi = cfg.png_dpi or 800
     executor.run_inkscape(svg_path, png_path, dpi, function(inkscape_success, inkscape_output)
-      if inkscape_success then
-        vim.notify(
-          "plantuml.nvim: PNG created: " .. png_path,
-          vim.log.levels.INFO
-        )
-      end
-      if callback then
-        callback(inkscape_success)
-      end
+      vim.schedule(function()
+        if inkscape_success then
+          vim.notify(
+            "plantuml.nvim: PNG created: " .. png_path,
+            vim.log.levels.INFO
+          )
+        end
+        if callback then
+          callback(inkscape_success)
+        end
+      end)
     end)
   end)
 end
@@ -166,15 +170,17 @@ function M.create_utxt(callback)
 
   -- Run PlantUML
   executor.run_plantuml(info.fullpath, output_path, "utxt", function(success, output)
-    if success then
-      vim.notify(
-        "plantuml.nvim: UTXT created: " .. output_path,
-        vim.log.levels.INFO
-      )
-    end
-    if callback then
-      callback(success)
-    end
+    vim.schedule(function()
+      if success then
+        vim.notify(
+          "plantuml.nvim: UTXT created: " .. output_path,
+          vim.log.levels.INFO
+        )
+      end
+      if callback then
+        callback(success)
+      end
+    end)
   end)
 end
 

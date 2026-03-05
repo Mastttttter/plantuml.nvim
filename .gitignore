@@ -29,3 +29,6 @@ PROGRESS.txt
 
 # Completed TDD archives
 completed-tdd-archives/
+
+# PlantUML output
+umlout/

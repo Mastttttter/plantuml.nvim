@@ -140,10 +140,12 @@ function M.start_server(callback)
     server_state.running = false
 
     if code ~= 0 and code ~= nil then
-      vim.notify(
-        "plantuml.nvim: Server process exited with code " .. code,
-        vim.log.levels.WARN
-      )
+      vim.schedule(function()
+        vim.notify(
+          "plantuml.nvim: Server process exited with code " .. code,
+          vim.log.levels.WARN
+        )
+      end)
     end
   end)
 
@@ -177,15 +179,17 @@ function M.start_server(callback)
     end
   end)
 
-  -- Read stderr for errors
+-- Read stderr for errors
   stderr_pipe:read_start(function(err, data)
     if err or not data then
       return
     end
-    vim.notify(
-      "plantuml.nvim: Server error: " .. data,
-      vim.log.levels.ERROR
-    )
+    vim.schedule(function()
+      vim.notify(
+        "plantuml.nvim: Server error: " .. data,
+        vim.log.levels.ERROR
+      )
+    end)
   end)
 
   -- Give the server a moment to start, then call callback
