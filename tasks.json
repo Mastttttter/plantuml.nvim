@@ -119,7 +119,7 @@
         ]
       },
       "skills": ["testing-safe-protocol", "systematic-debugging"],
-      "complete": false
+      "complete": true
     }
   ]
 }

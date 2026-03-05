@@ -654,4 +654,404 @@ describe("preview module", function()
       assert.is_not_nil(new_preview_win, "new preview window should be created after direct close")
     end)
   end)
+
+  describe("FR-6: SVG Preview State Tracking", function()
+    it("exports is_svg_preview_active function", function()
+      assert.is_function(preview.is_svg_preview_active)
+    end)
+
+    it("initially returns false when no SVG preview is active", function()
+      assert.is_false(preview.is_svg_preview_active())
+    end)
+
+    it("returns true after preview_svg starts", function()
+      -- Create a test PlantUML file
+      local test_file = test_dir .. "/diagram.puml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      -- Mock system call and server
+      local callback_executed = false
+      vim.system = function(cmd, opts, callback)
+        vim.schedule(function()
+          callback_executed = true
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock server module
+      package.loaded["plantuml.server"] = nil
+      local server = {
+        start_server = function(cb) cb("http://localhost:8912") end,
+        get_port = function() return 8912 end,
+        is_running = function() return true end,
+      }
+      package.loaded["plantuml.server"] = server
+
+      -- Mock ui.open
+      vim.ui = vim.ui or {}
+      vim.ui.open = function(url) end
+
+      -- Call preview_svg
+      preview.preview_svg()
+      vim.wait(500, function()
+        return callback_executed
+      end, 10)
+
+      -- Should now be active
+      assert.is_true(preview.is_svg_preview_active())
+
+      -- Cleanup
+      preview.stop_svg_preview()
+    end)
+
+    it("returns false after stop_svg_preview is called", function()
+      -- Create a test PlantUML file
+      local test_file = test_dir .. "/diagram.puml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      -- Mock system call and server
+      vim.system = function(cmd, opts, callback)
+        vim.schedule(function()
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock server module
+      package.loaded["plantuml.server"] = nil
+      local server = {
+        start_server = function(cb) cb("http://localhost:8912") end,
+        get_port = function() return 8912 end,
+        is_running = function() return true end,
+      }
+      package.loaded["plantuml.server"] = server
+
+      -- Mock ui.open
+      vim.ui = vim.ui or {}
+      vim.ui.open = function(url) end
+
+      -- Start preview
+      preview.preview_svg()
+      vim.wait(100)
+
+      -- Stop preview
+      preview.stop_svg_preview()
+      vim.wait(50)
+
+      -- Should now be inactive
+      assert.is_false(preview.is_svg_preview_active())
+    end)
+  end)
+
+  describe("FR-7: SVG Autocmd Registration", function()
+    it("exports register_svg_autocmd function", function()
+      assert.is_function(preview.register_svg_autocmd)
+    end)
+
+    it("exports unregister_svg_autocmd function", function()
+      assert.is_function(preview.unregister_svg_autocmd)
+    end)
+
+    it("register_svg_autocmd creates autocmd for .puml and .uml files", function()
+      preview.register_svg_autocmd()
+
+      -- Check that the augroup exists
+      local ok = pcall(api.nvim_get_autocmds, { group = "PlantumlSvgPreview" })
+      assert.is_true(ok, "PlantumlSvgPreview augroup should exist")
+
+      preview.unregister_svg_autocmd()
+    end)
+
+    it("unregister_svg_autocmd removes the autocmd without error", function()
+      preview.register_svg_autocmd()
+      preview.unregister_svg_autocmd()
+      -- Should not error when called twice
+      preview.unregister_svg_autocmd()
+    end)
+
+    it("preview_svg registers SVG autocmd when starting", function()
+      -- Create a test PlantUML file
+      local test_file = test_dir .. "/diagram.puml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      -- Mock system call and server
+      local callback_executed = false
+      vim.system = function(cmd, opts, callback)
+        vim.schedule(function()
+          callback_executed = true
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock server module
+      package.loaded["plantuml.server"] = nil
+      local server = {
+        start_server = function(cb) cb("http://localhost:8912") end,
+        get_port = function() return 8912 end,
+        is_running = function() return true end,
+      }
+      package.loaded["plantuml.server"] = server
+
+      -- Mock ui.open
+      vim.ui = vim.ui or {}
+      vim.ui.open = function(url) end
+
+      -- Call preview_svg
+      preview.preview_svg()
+      vim.wait(500, function()
+        return callback_executed
+      end, 10)
+
+      -- Check that autocmd was registered
+      local ok = pcall(api.nvim_get_autocmds, { group = "PlantumlSvgPreview" })
+      assert.is_true(ok, "SVG autocmd should be registered after preview_svg starts")
+
+      -- Cleanup
+      preview.stop_svg_preview()
+    end)
+  end)
+
+  describe("FR-8: SVG Regeneration on Save", function()
+it("autocmd regenerates SVG on BufWritePost for .puml files", function()
+      -- Create a test PlantUML file
+      local test_file = test_dir .. "/diagram.puml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      local system_calls = {}
+
+      -- Mock system call
+      vim.system = function(cmd, opts, callback)
+        table.insert(system_calls, cmd)
+        vim.schedule(function()
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock server module
+      package.loaded["plantuml.server"] = nil
+      local server = {
+        start_server = function(cb) cb("http://localhost:8912") end,
+        get_port = function() return 8912 end,
+        is_running = function() return true end,
+      }
+      package.loaded["plantuml.server"] = server
+
+      -- Mock ui.open
+      vim.ui = vim.ui or {}
+      vim.ui.open = function(url) end
+
+      -- Start preview
+      preview.preview_svg()
+      vim.wait(500, function()
+        return #system_calls >= 1
+      end, 10)
+
+      -- Wait for scheduled callbacks to complete (state is set in callback)
+      vim.wait(100)
+
+      -- Verify state is active
+      assert.is_true(preview.is_svg_preview_active(), "SVG preview should be active")
+
+      -- Clear calls
+      system_calls = {}
+
+      -- Trigger BufWritePost (autocmd is already registered by preview_svg)
+      vim.cmd("doautocmd BufWritePost " .. test_file)
+      vim.wait(500, function()
+        return #system_calls >= 1
+      end, 10)
+
+      -- Should have called PlantUML (not create_svg command)
+      assert.is_true(#system_calls >= 1, "PlantUML should be called on save")
+
+      -- Verify the output path is in temp directory
+      local found_temp_output = false
+      for _, cmd in ipairs(system_calls) do
+        for _, arg in ipairs(cmd) do
+          if type(arg) == "string" and arg:match("/tmp/plantuml%.nvim") then
+            found_temp_output = true
+            break
+          end
+        end
+        if found_temp_output then break end
+      end
+      assert.is_true(found_temp_output, "SVG should be regenerated to temp directory")
+
+      -- Cleanup
+      preview.unregister_svg_autocmd()
+      preview.stop_svg_preview()
+    end)
+
+    it("autocmd regenerates SVG on BufWritePost for .uml files", function()
+      -- Create a test PlantUML file with .uml extension
+      local test_file = test_dir .. "/diagram.uml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      local system_calls = {}
+
+      -- Mock system call
+      vim.system = function(cmd, opts, callback)
+        table.insert(system_calls, cmd)
+        vim.schedule(function()
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock server module
+      package.loaded["plantuml.server"] = nil
+      local server = {
+        start_server = function(cb) cb("http://localhost:8912") end,
+        get_port = function() return 8912 end,
+        is_running = function() return true end,
+      }
+      package.loaded["plantuml.server"] = server
+
+      -- Mock ui.open
+      vim.ui = vim.ui or {}
+      vim.ui.open = function(url) end
+
+      -- Start preview
+      preview.preview_svg()
+      vim.wait(500, function()
+        return #system_calls >= 1
+      end, 10)
+
+      -- Wait for scheduled callbacks to complete (state is set in callback)
+      vim.wait(100)
+
+      -- Verify state is active
+      assert.is_true(preview.is_svg_preview_active(), "SVG preview should be active")
+
+      -- Clear calls
+      system_calls = {}
+
+      -- Trigger BufWritePost (autocmd is already registered by preview_svg)
+      vim.cmd("doautocmd BufWritePost " .. test_file)
+      vim.wait(500, function()
+        return #system_calls >= 1
+      end, 10)
+
+      -- Should have called PlantUML
+      assert.is_true(#system_calls >= 1, "PlantUML should be called on save for .uml files")
+
+      -- Cleanup
+      preview.unregister_svg_autocmd()
+      preview.stop_svg_preview()
+    end)
+
+    it("does not trigger PlantumlCreateSVG command", function()
+      -- Create a test PlantUML file
+      local test_file = test_dir .. "/diagram.puml"
+      vim.fn.writefile({
+        "@startuml",
+        "Alice -> Bob: Test",
+        "@enduml",
+      }, test_file)
+      vim.cmd("edit " .. test_file)
+
+      local commands_executed = {}
+
+      -- Mock nvim_command to capture command calls
+      local original_nvim_command = api.nvim_command
+      api.nvim_command = function(cmd)
+        table.insert(commands_executed, cmd)
+        original_nvim_command(cmd)
+      end
+
+      -- Mock system call
+      vim.system = function(cmd, opts, callback)
+        vim.schedule(function()
+          callback({ code = 0, stdout = "", stderr = "" })
+        end)
+      end
+
+      -- Mock server module
+      package.loaded["plantuml.server"] = nil
+      local server = {
+        start_server = function(cb) cb("http://localhost:8912") end,
+        get_port = function() return 8912 end,
+        is_running = function() return true end,
+      }
+      package.loaded["plantuml.server"] = server
+
+      -- Mock ui.open
+      vim.ui = vim.ui or {}
+      vim.ui.open = function(url) end
+
+      -- Start preview and register autocmd
+      preview.preview_svg()
+      vim.wait(100)
+      preview.register_svg_autocmd()
+
+      -- Trigger BufWritePost
+      vim.cmd("doautocmd BufWritePost " .. test_file)
+      vim.wait(200)
+
+      -- Restore original nvim_command
+      api.nvim_command = original_nvim_command
+
+      -- Check that PlantumlCreateSVG was NOT called
+      for _, cmd in ipairs(commands_executed) do
+        assert.is_false(cmd:match("PlantumlCreateSVG") ~= nil, 
+          "PlantumlCreateSVG should not be called by autocmd")
+        assert.is_false(cmd:match("PlantumlCreatePNG") ~= nil,
+          "PlantumlCreatePNG should not be called by autocmd")
+        assert.is_false(cmd:match("PlantumlCreateUTXT") ~= nil,
+          "PlantumlCreateUTXT should not be called by autocmd")
+      end
+
+      -- Cleanup
+      preview.unregister_svg_autocmd()
+      preview.stop_svg_preview()
+    end)
+  end)
+
+  describe("FR-9: SVG Autocmd Cleanup", function()
+    it("stop_svg_preview unregisters the SVG autocmd", function()
+      -- Register autocmd first
+      preview.register_svg_autocmd()
+
+      -- Verify it's registered
+      local ok_before = pcall(api.nvim_get_autocmds, { group = "PlantumlSvgPreview" })
+      assert.is_true(ok_before, "SVG autocmd should be registered")
+
+      -- Stop preview
+      preview.stop_svg_preview()
+      vim.wait(50)
+
+      -- Check state is cleared
+      assert.is_false(preview.is_svg_preview_active())
+    end)
+
+    it("unregister_svg_autocmd can be called multiple times without error", function()
+      preview.unregister_svg_autocmd()
+      preview.unregister_svg_autocmd()
+      preview.unregister_svg_autocmd()
+      -- Should not error
+    end)
+  end)
 end)

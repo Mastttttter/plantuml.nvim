@@ -14,6 +14,10 @@ local state = {
   preview_winnr = nil,
   source_bufnr = nil,
   autocmd_id = nil,
+  -- SVG preview state
+  svg_preview_active = false,
+  svg_autocmd_id = nil,
+  svg_source_bufnr = nil,
 }
 
 --- Inject SSE auto-refresh script into SVG file
@@ -346,6 +350,70 @@ function M.close_preview()
   M.unregister_autocmd()
 end
 
+--- Check if SVG preview is active
+---@return boolean True if SVG preview is active
+function M.is_svg_preview_active()
+  return state.svg_preview_active or false
+end
+
+--- Register BufWritePost autocmd for SVG preview auto-refresh
+function M.register_svg_autocmd()
+  M.unregister_svg_autocmd()
+
+  api.nvim_create_augroup("PlantumlSvgPreview", { clear = true })
+
+  state.svg_autocmd_id = api.nvim_create_autocmd("BufWritePost", {
+    group = "PlantumlSvgPreview",
+    pattern = { "*.puml", "*.uml" },
+    callback = function()
+      if M.is_svg_preview_active() then
+        M.refresh_svg_preview()
+      end
+    end,
+    desc = "Auto-refresh SVG preview on save",
+  })
+end
+
+--- Unregister the SVG autocmd
+function M.unregister_svg_autocmd()
+  if state.svg_autocmd_id then
+    pcall(api.nvim_del_autocmd, state.svg_autocmd_id)
+    state.svg_autocmd_id = nil
+  end
+end
+
+--- Refresh SVG preview (regenerate to temp directory)
+function M.refresh_svg_preview()
+  local server = require("plantuml.server")
+
+  local info = util.get_puml_file_info()
+  if not info then
+    return
+  end
+
+  local temp_dir = util.ensure_temp_dir()
+  if not temp_dir then
+    return
+  end
+
+  local output_path = temp_dir .. "/" .. info.name .. ".svg"
+
+  executor.run_plantuml(info.fullpath, output_path, "svg", function(success, _)
+    if not success then
+      return
+    end
+
+    local server_port = server.get_port() or 8912
+    inject_script(output_path, server_port)
+  end)
+end
+
+--- Stop SVG preview and cleanup
+function M.stop_svg_preview()
+  state.svg_preview_active = false
+  M.unregister_svg_autocmd()
+end
+
 --- Preview SVG in browser
 function M.preview_svg()
   local server = require("plantuml.server")
@@ -362,6 +430,9 @@ function M.preview_svg()
   if not temp_dir then
     return
   end
+
+  -- Store source buffer for SVG preview
+  state.svg_source_bufnr = api.nvim_get_current_buf()
 
   -- Generate SVG to temp directory
   local output_path = temp_dir .. "/" .. info.name .. ".svg"
@@ -381,6 +452,10 @@ function M.preview_svg()
         vim.notify("plantuml.nvim: Failed to start preview server", vim.log.levels.ERROR)
         return
       end
+
+      -- Mark SVG preview as active and register autocmd
+      state.svg_preview_active = true
+      M.register_svg_autocmd()
 
       -- Open browser
       local preview_url = url .. "/" .. info.name .. ".svg"
