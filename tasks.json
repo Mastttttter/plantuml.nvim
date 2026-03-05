@@ -38,7 +38,7 @@
         ]
       },
       "skills": ["testing-safe-protocol"],
-      "complete": false
+      "complete": true
     },
     {
       "task": "Inject SSE listener script into preview SVG",

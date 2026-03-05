@@ -2,6 +2,7 @@
 /**
  * Simple static file server for PlantUML preview
  * Serves files from /tmp/plantuml.nvim/ with CORS headers
+ * Provides SSE endpoint for real-time refresh notifications
  */
 
 const http = require('http');
@@ -11,6 +12,12 @@ const path = require('path');
 const SERVE_DIR = '/tmp/plantuml.nvim';
 const DEFAULT_PORT = 8912;
 const MAX_PORT = 8099;
+
+// Connected SSE clients
+const sseClients = new Set();
+
+// File watcher instance
+let fileWatcher = null;
 
 // Get port from command line argument
 let port = DEFAULT_PORT;
@@ -41,12 +48,98 @@ function getMimeType(ext) {
 }
 
 /**
+ * Handle SSE client connection
+ * @param {http.ServerResponse} res - HTTP response object
+ */
+function handleSSEConnection(res) {
+  // Set SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+  });
+
+  // Send initial keep-alive comment
+  res.write(': connected\n\n');
+
+  // Add client to set
+  sseClients.add(res);
+
+  console.log(`SSE client connected. Total clients: ${sseClients.size}`);
+
+  // Handle client disconnect
+  res.on('close', () => {
+    sseClients.delete(res);
+    console.log(`SSE client disconnected. Total clients: ${sseClients.size}`);
+  });
+}
+
+/**
+ * Broadcast refresh event to all connected SSE clients
+ * @param {string} filename - Name of the changed file
+ */
+function broadcastRefresh(filename) {
+  if (sseClients.size === 0) {
+    return;
+  }
+
+  console.log(`Broadcasting refresh to ${sseClients.size} clients for file: ${filename}`);
+
+  const message = 'data: refresh\n\n';
+
+  sseClients.forEach((client) => {
+    try {
+      client.write(message);
+    } catch (err) {
+      // Client might have disconnected, remove it
+      sseClients.delete(client);
+    }
+  });
+}
+
+/**
+ * Start file watcher for the serve directory
+ */
+function startFileWatcher() {
+  // Ensure directory exists
+  if (!fs.existsSync(SERVE_DIR)) {
+    fs.mkdirSync(SERVE_DIR, { recursive: true });
+    console.log(`Created directory: ${SERVE_DIR}`);
+  }
+
+  // Watch for file changes
+  fileWatcher = fs.watch(SERVE_DIR, (eventType, filename) => {
+    if (!filename) {
+      return;
+    }
+
+    // Only broadcast for SVG files
+    if (filename.endsWith('.svg')) {
+      broadcastRefresh(filename);
+    }
+  });
+
+  fileWatcher.on('error', (err) => {
+    console.error(`File watcher error: ${err.message}`);
+  });
+
+  console.log(`File watcher started on ${SERVE_DIR}`);
+}
+
+/**
  * Create HTTP server
  * @param {number} port - Port to listen on
  * @returns {http.Server} HTTP server instance
  */
 function createServer(port) {
   const server = http.createServer((req, res) => {
+    // Handle SSE endpoint
+    if (req.url.split('?')[0] === '/events' && req.method === 'GET') {
+      handleSSEConnection(res);
+      return;
+    }
+
     // Parse URL and remove query string
     let urlPath = req.url.split('?')[0];
 
@@ -149,6 +242,9 @@ function tryStartServer(startPort, maxPort, callback) {
 
 // Start the server
 tryStartServer(port, MAX_PORT, (server, actualPort) => {
+  // Start file watcher
+  startFileWatcher();
+
   // Output port for parent process to read
   console.log(`PORT:${actualPort}`);
 });
