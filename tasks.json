@@ -1,125 +1,279 @@
 {
   "tasks": [
     {
-      "task": "Add SSE endpoint to server.js",
-      "description": "Implement Server-Sent Events endpoint in Node.js server to push refresh notifications when SVG files change.",
+      "task": "Rewrite server.js with new architecture",
+      "description": "Rewrite Node.js server to use HTTP notification instead of file watching.",
       "steps": [
         {
           "step": 1,
-          "description": "Add /events SSE endpoint with proper headers and keep-alive mechanism"
+          "description": "Implement state management (filename, svgContent, lastUpdate)"
         },
         {
           "step": 2,
-          "description": "Implement file watcher using fs.watch to monitor /tmp/plantuml.nvim directory"
+          "description": "Create HTML template with filename title, SVG container, time display, and reminder"
         },
         {
           "step": 3,
-          "description": "Broadcast refresh event to all connected SSE clients when SVG file changes"
+          "description": "Implement GET / endpoint to serve the HTML page"
         },
         {
           "step": 4,
-          "description": "Handle client disconnect and cleanup stale connections"
+          "description": "Implement GET /svg endpoint to return cached SVG content"
+        },
+        {
+          "step": 5,
+          "description": "Implement GET /events SSE endpoint with update and shutdown event types"
+        },
+        {
+          "step": 6,
+          "description": "Implement POST /update endpoint to receive Neovim notifications"
+        },
+        {
+          "step": 7,
+          "description": "Implement POST /shutdown endpoint to notify browser closure"
+        },
+        {
+          "step": 8,
+          "description": "Remove fileWatcher code entirely"
         }
       ],
-      "acceptance-criteria": "SSE endpoint /events returns Content-Type: text/event-stream. Server maintains list of connected clients. File changes in /tmp/plantuml.nvim trigger SSE event with data: refresh. Disconnected clients are properly cleaned up. PlantumlCreateSVG and PlantumlCreatePNG are NOT affected.",
+      "acceptance-criteria": "Server serves HTML page with title, centered SVG container, time display, and save reminder. GET /svg returns cached SVG content. GET /events provides SSE with update and shutdown event types. POST /update accepts {filename, filepath} and broadcasts update event via SSE. POST /shutdown broadcasts shutdown event to all connected clients. No fileWatcher code exists in server.js.",
       "test-plan": {
         "unit": [
-          "SSE endpoint returns correct headers (Content-Type: text/event-stream, Cache-Control: no-cache, Connection: keep-alive)",
-          "Client connection is added to clients list on connect",
-          "Client connection is removed from clients list on disconnect",
-          "File watcher callback sends refresh event to all connected clients with correct SSE format"
+          "Server starts on specified port and responds to GET / with valid HTML",
+          "GET /svg returns 404 when no SVG is cached",
+          "GET /svg returns cached SVG content after POST /update",
+          "POST /update with valid data stores filename, reads file, caches SVG content, and returns 200",
+          "POST /update with missing file returns 404",
+          "POST /shutdown returns 200 and marks shutdown state",
+          "SSE client receives 'connected' comment on connect",
+          "SSE client receives 'update' event after POST /update is called",
+          "SSE client receives 'shutdown' event after POST /shutdown is called"
         ],
         "integration": [
-          "curl to /events receives keep-alive comments and refresh events when SVG file is modified in /tmp/plantuml.nvim",
-          "Multiple concurrent clients all receive refresh events"
+          "Full flow: POST /update triggers SSE update event with correct filename and time",
+          "Full flow: POST /shutdown triggers SSE shutdown event and client can handle it"
         ],
         "e2e-manual": [
-          "Open browser to SSE endpoint, modify SVG file in /tmp/plantuml.nvim, verify browser receives refresh event"
+          "Open browser to server URL, verify HTML page renders correctly with all elements",
+          "Trigger POST /update, verify browser updates SVG and time without full page reload",
+          "Trigger POST /shutdown, verify browser displays shutdown message"
         ]
       },
-      "skills": ["testing-safe-protocol"],
-      "complete": true
+      "skills": ["tdd-workflow", "testing-safe-protocol"],
+      "complete": false
     },
     {
-      "task": "Inject SSE listener script into preview SVG",
-      "description": "Inject auto-refresh script into SVG files ONLY for PlantumlPreview, not for PlantumlCreateSVG or PlantumlCreatePNG.",
+      "task": "Add HTTP client module for server communication",
+      "description": "Create a new Lua module to handle HTTP communication with the preview server.",
       "steps": [
         {
           "step": 1,
-          "description": "Create inject_script() helper function in preview.lua that adds EventSource listener"
+          "description": "Create lua/plantuml/http_client.lua module"
         },
         {
           "step": 2,
-          "description": "Call inject_script() in preview_svg() AFTER executor.run_plantuml() callback, only for preview output"
+          "description": "Implement notify_update(host, port, filename, filepath) function"
         },
         {
           "step": 3,
-          "description": "Verify PlantumlCreateSVG and PlantumlCreatePNG do NOT receive script injection"
-        }
-      ],
-      "acceptance-criteria": "SVG files in /tmp/plantuml.nvim/ contain auto-refresh script. SVG files in project-folder/umlout/ do NOT contain any injected script. executor.lua remains unmodified to avoid side effects on CreateSVG and CreatePNG.",
-      "test-plan": {
-        "unit": [
-          "inject_script() function returns valid SVG string with <script> element",
-          "Script contains EventSource connection to correct /events endpoint",
-          "Script contains location.reload() call in onmessage handler",
-          "Injection handles SVG string with xml declaration correctly",
-          "Original SVG attributes (viewBox, width, height, etc.) are preserved after injection"
-        ],
-        "integration": [
-          "PlantumlPreview generates SVG with injected script in /tmp/plantuml.nvim/",
-          "PlantumlCreateSVG generates clean SVG without script in project-folder/umlout/svg/",
-          "PlantumlCreatePNG generates clean SVG and PNG without script in project-folder/umlout/"
-        ],
-        "e2e-manual": [
-          "Open PlantumlPreview SVG in browser, verify no console errors from injected script",
-          "Run PlantumlCreateSVG, open output file, verify no injected script present"
-        ]
-      },
-      "skills": ["testing-safe-protocol"],
-      "complete": true
-    },
-    {
-      "task": "Add BufWritePost autocommand for SVG preview auto-refresh",
-      "description": "Register BufWritePost autocommand to regenerate SVG and trigger browser refresh when user saves .puml or .uml buffer during active SVG preview.",
-      "steps": [
-        {
-          "step": 1,
-          "description": "Track SVG preview state (active/inactive) in preview.lua module"
-        },
-        {
-          "step": 2,
-          "description": "Create register_svg_autocmd() function for BufWritePost on .puml/.uml files"
-        },
-        {
-          "step": 3,
-          "description": "Autocmd handler regenerates preview SVG in /tmp/plantuml.nvim/, not project output"
+          "description": "Implement notify_shutdown(host, port) function"
         },
         {
           "step": 4,
-          "description": "Clean up autocmd when preview is stopped or buffer is closed"
+          "description": "Use vim.system() or curl for HTTP requests with proper error handling"
         }
       ],
-      "acceptance-criteria": "BufWritePost autocommand is registered when SVG preview starts. Saving .puml or .uml file triggers preview SVG regeneration in /tmp/plantuml.nvim/. Autocommand is cleaned up when preview stops. PlantumlCreateSVG/PNG/UTXT are NOT triggered by the autocommand.",
+      "acceptance-criteria": "Module exports notify_update() and notify_shutdown() functions. Functions are async and accept callbacks. HTTP errors are handled gracefully with vim.notify. Module uses vim.system() for HTTP requests when available, falls back to curl if needed.",
       "test-plan": {
         "unit": [
-          "register_svg_autocmd() creates exactly one BufWritePost autocommand with correct pattern (*.puml,*.uml)",
-          "Autocmd is stored and can be cleared by augroup name",
-          "Preview state flag toggles correctly on start/stop"
+          "notify_update() constructs correct POST request body with filename and filepath",
+          "notify_shutdown() sends POST request to /shutdown endpoint",
+          "HTTP error responses trigger vim.notify with error message",
+          "Module handles connection refused gracefully",
+          "Module handles timeout gracefully"
         ],
         "integration": [
-          "Calling preview_svg() registers the autocmd and sets preview state to active",
-          "BufWritePost event triggers SVG regeneration in /tmp/plantuml.nvim/ when preview is active",
-          "BufWritePost event does NOT trigger regeneration when preview is inactive",
-          "BufWritePost event does NOT trigger PlantumlCreateSVG/PNG/UTXT functions",
-          "Closing preview window clears the autocmd and preview state"
+          "notify_update() successfully communicates with running test server",
+          "notify_shutdown() successfully communicates with running test server"
+        ],
+        "e2e-manual": []
+      },
+      "skills": ["tdd-workflow"],
+      "complete": false
+    },
+    {
+      "task": "Refactor preview.lua to use HTTP notification",
+      "description": "Update preview.lua to remove inject_script and use HTTP notification for SVG updates.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Remove inject_script() function entirely"
+        },
+        {
+          "step": 2,
+          "description": "Update preview_svg() to use new server flow and HTTP notification"
+        },
+        {
+          "step": 3,
+          "description": "Update refresh_svg_preview() to use HTTP notification instead of file watching"
+        },
+        {
+          "step": 4,
+          "description": "Add buffer switch detection in preview_svg() to update diagram when switching buffers"
+        },
+        {
+          "step": 5,
+          "description": "Track current preview filename to detect buffer changes"
+        },
+        {
+          "step": 6,
+          "description": "Update stop_svg_preview() to call HTTP notify_shutdown"
+        }
+      ],
+      "acceptance-criteria": "inject_script() function is removed. preview_svg() generates SVG, starts server if needed, opens browser to server root URL (not direct SVG file), and sends HTTP POST /update. refresh_svg_preview() generates SVG and sends HTTP POST /update. When user switches to a different .puml buffer and saves, the preview updates to show the new diagram. stop_svg_preview() sends HTTP POST /shutdown before cleanup.",
+      "test-plan": {
+        "unit": [
+          "preview_svg() calls executor.run_plantuml() with correct arguments",
+          "preview_svg() does not call inject_script() (function removed)",
+          "preview_svg() opens browser to server root URL, not SVG file path",
+          "refresh_svg_preview() calls HTTP notify_update after PlantUML completes",
+          "stop_svg_preview() calls HTTP notify_shutdown",
+          "Buffer switch detection correctly identifies when preview should update"
+        ],
+        "integration": [
+          "Full preview flow: preview_svg() generates SVG, server caches it, browser displays it",
+          "Refresh flow: save triggers refresh_svg_preview(), HTTP notification sent, browser updates",
+          "Buffer switch flow: switching to another .puml buffer and saving updates the preview"
         ],
         "e2e-manual": [
-          "Run :PlantumlPreview, edit and save .puml file, verify browser auto-refreshes with updated diagram"
+          "Open browser preview, modify .puml file, save, verify browser updates without full reload",
+          "Switch to another .puml buffer, save, verify browser shows the new diagram"
         ]
       },
-      "skills": ["testing-safe-protocol", "systematic-debugging"],
-      "complete": true
+      "skills": ["tdd-workflow", "systematic-debugging"],
+      "complete": false
+    },
+    {
+      "task": "Update server tests for new architecture",
+      "description": "Update test_server.lua to test the new server architecture.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Remove tests for fileWatcher functionality"
+        },
+        {
+          "step": 2,
+          "description": "Add tests for GET / endpoint returning HTML"
+        },
+        {
+          "step": 3,
+          "description": "Add tests for GET /svg endpoint"
+        },
+        {
+          "step": 4,
+          "description": "Add tests for POST /update endpoint"
+        },
+        {
+          "step": 5,
+          "description": "Add tests for POST /shutdown endpoint"
+        },
+        {
+          "step": 6,
+          "description": "Add tests for SSE event types (update, shutdown)"
+        }
+      ],
+      "acceptance-criteria": "All fileWatcher-related tests removed. Tests exist for GET /, GET /svg, POST /update, POST /shutdown, and SSE event types. All tests pass when run with PlenaryBustedDirectory.",
+      "test-plan": {
+        "unit": [
+          "Test file is valid Lua and loads without errors",
+          "All describe blocks have at least one it block",
+          "All assertions use correct Plenary syntax"
+        ],
+        "integration": [],
+        "e2e-manual": [
+          "Run tests: nvim --headless -c 'PlenaryBustedDirectory lua/tests/ {minimal_init = \"lua/tests/minimal_init.lua\"}'"
+        ]
+      },
+      "skills": ["tdd-workflow", "testing-safe-protocol"],
+      "complete": false
+    },
+    {
+      "task": "Update preview tests for new architecture",
+      "description": "Update test_preview.lua to test the new preview flow without inject_script.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Remove tests for inject_script() function"
+        },
+        {
+          "step": 2,
+          "description": "Update SVG preview tests to mock HTTP client instead of inject_script"
+        },
+        {
+          "step": 3,
+          "description": "Add tests for buffer switch detection"
+        },
+        {
+          "step": 4,
+          "description": "Add tests for HTTP notification calls"
+        }
+      ],
+      "acceptance-criteria": "All inject_script-related tests removed. Tests verify HTTP notify_update is called after SVG generation. Tests verify HTTP notify_shutdown is called when stopping preview. Tests verify buffer switch detection works correctly. All tests pass.",
+      "test-plan": {
+        "unit": [
+          "Test file is valid Lua and loads without errors",
+          "No references to inject_script in test file",
+          "HTTP client mocks are properly set up and torn down"
+        ],
+        "integration": [],
+        "e2e-manual": [
+          "Run tests: nvim --headless -c 'PlenaryBustedDirectory lua/tests/ {minimal_init = \"lua/tests/minimal_init.lua\"}'"
+        ]
+      },
+      "skills": ["tdd-workflow", "testing-safe-protocol"],
+      "complete": false
+    },
+    {
+      "task": "Integration test and documentation update",
+      "description": "Run full integration tests and update documentation to reflect new architecture.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Run all tests to verify no regressions"
+        },
+        {
+          "step": 2,
+          "description": "Manually test full preview workflow in Neovim"
+        },
+        {
+          "step": 3,
+          "description": "Update README_FOR_AGENT.md if needed"
+        },
+        {
+          "step": 4,
+          "description": "Verify other commands (CreateSVG, CreatePNG, CreateUTXT) still work"
+        }
+      ],
+      "acceptance-criteria": "All tests pass. Manual testing confirms preview works correctly: browser opens with HTML page, save triggers update, SVG and time update without full page reload, buffer switch works, shutdown closes preview. Other commands (PlantumlCreateSVG, PlantumlCreatePNG, PlantumlCreateUTXT) still function correctly.",
+      "test-plan": {
+        "unit": [],
+        "integration": [
+          "All Plenary tests pass",
+          "PlantumlCreateSVG creates file in project/umlout/svg/",
+          "PlantumlCreatePNG creates file in project/umlout/png/",
+          "PlantumlCreateUTXT creates file in project/umlout/utxt/"
+        ],
+        "e2e-manual": [
+          "Full workflow: :PlantumlPreview opens browser with HTML page containing title, centered SVG, time",
+          "Save .puml file: browser updates SVG and time without full page reload",
+          "Switch to another .puml buffer and save: browser shows new diagram",
+          "Close preview: browser shows shutdown message",
+          "Other commands still work: :PlantumlCreateSVG, :PlantumlCreatePNG, :PlantumlCreateUTXT"
+        ]
+      },
+      "skills": ["verification-before-completion"],
+      "complete": false
     }
   ]
 }

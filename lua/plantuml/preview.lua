@@ -358,20 +358,23 @@ end
 
 --- Register BufWritePost autocmd for SVG preview auto-refresh
 function M.register_svg_autocmd()
-  M.unregister_svg_autocmd()
+  -- Use vim.schedule to avoid E5560 error when called from fast event context
+  vim.schedule(function()
+    M.unregister_svg_autocmd()
 
-  api.nvim_create_augroup("PlantumlSvgPreview", { clear = true })
+    api.nvim_create_augroup("PlantumlSvgPreview", { clear = true })
 
-  state.svg_autocmd_id = api.nvim_create_autocmd("BufWritePost", {
-    group = "PlantumlSvgPreview",
-    pattern = { "*.puml", "*.uml" },
-    callback = function()
-      if M.is_svg_preview_active() then
-        M.refresh_svg_preview()
-      end
-    end,
-    desc = "Auto-refresh SVG preview on save",
-  })
+    state.svg_autocmd_id = api.nvim_create_autocmd("BufWritePost", {
+      group = "PlantumlSvgPreview",
+      pattern = { "*.puml", "*.uml" },
+      callback = function()
+        if M.is_svg_preview_active() then
+          M.refresh_svg_preview()
+        end
+      end,
+      desc = "Auto-refresh SVG preview on save",
+    })
+  end)
 end
 
 --- Unregister the SVG autocmd
