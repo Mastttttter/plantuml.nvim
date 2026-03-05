@@ -168,17 +168,25 @@ function M.start_server(callback)
 
   -- Track if callback has been called
   local callback_called = false
-  local callback_timeout = nil
+  local callback_timer = nil
 
   local function call_callback(url)
     if callback_called then return end
     callback_called = true
-    if callback_timeout then
-      vim.fn.timer_stop(callback_timeout)
-      callback_timeout = nil
+    -- Stop timer in main thread context
+    if callback_timer then
+      vim.schedule(function()
+        if callback_timer then
+          pcall(vim.fn.timer_stop, callback_timer)
+          callback_timer = nil
+        end
+      end)
     end
+    -- Call callback in main thread context
     if callback then
-      callback(url)
+      vim.schedule(function()
+        callback(url)
+      end)
     end
   end
 
@@ -221,7 +229,7 @@ function M.start_server(callback)
   end)
 
   -- Set a timeout in case server never outputs PORT
-  callback_timeout = vim.fn.timer_start(2000, function()
+  callback_timer = vim.fn.timer_start(2000, function()
     if not callback_called then
       vim.schedule(function()
         vim.notify(

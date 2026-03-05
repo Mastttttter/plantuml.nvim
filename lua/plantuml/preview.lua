@@ -20,7 +20,19 @@ local state = {
   svg_autocmd_id = nil,
   svg_source_bufnr = nil,
   svg_current_filename = nil, -- Track current preview filename for buffer change detection
+  browser_opened = false, -- Track if browser has been opened (don't open new tabs on file switch)
 }
+
+-- Register cleanup on module load
+vim.api.nvim_create_autocmd("VimLeavePre", {
+  group = vim.api.nvim_create_augroup("PlantumlCleanup", { clear = true }),
+  callback = function()
+    if state.svg_preview_active then
+      M.stop_svg_preview()
+    end
+  end,
+  desc = "Clean up SVG preview when Neovim exits",
+})
 
 --- Find existing buffer by name
 --- @param name string Buffer name to search for
@@ -371,6 +383,7 @@ function M.stop_svg_preview()
   
   state.svg_preview_active = false
   state.svg_current_filename = nil
+  state.browser_opened = false -- Reset browser state
   M.unregister_svg_autocmd()
 end
 
@@ -384,9 +397,6 @@ function M.preview_svg()
     vim.notify("plantuml.nvim: No PlantUML buffer found", vim.log.levels.ERROR)
     return
   end
-
-  -- Check if file changed (buffer switch detection)
-  local file_changed = state.svg_current_filename ~= info.name
 
   -- Ensure temp directory exists
   local temp_dir = util.ensure_temp_dir()
@@ -431,9 +441,11 @@ function M.preview_svg()
         end)
       end
 
-      -- Open browser only if file changed or preview not yet active
-      if file_changed then
+      -- Open browser only if not already opened
+      -- Per README: "the server should change to display the new diagram" without opening new tabs
+      if not state.browser_opened then
         vim.ui.open(url)
+        state.browser_opened = true
       end
     end)
   end)
