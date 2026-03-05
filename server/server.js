@@ -18,7 +18,7 @@ const path = require('path');
 
 const SERVE_DIR = '/tmp/plantuml.nvim';
 const DEFAULT_PORT = 8912;
-const MAX_PORT = 8099;
+const MAX_PORT = 8940; // Allow trying up to 28 ports (8912-8940)
 
 // MIME types for common file formats
 const MIME_TYPES = {

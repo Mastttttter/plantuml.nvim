@@ -36,15 +36,16 @@ local function is_node_available()
   return vim.fn.executable("node") == 1
 end
 
---- Check if a port is in use
+--- Check if a port is in use (simple check by attempting to connect)
 ---@param port number Port number to check
----@return boolean true if port is in use
+---@return boolean true if port appears to be in use
 local function is_port_in_use(port)
-  -- Create a TCP socket to check if port is available
+  -- Simple check: try to bind to the port
+  -- If bind fails, something is likely using it
   local handle = uv.new_tcp()
-  local result = handle:bind("127.0.0.1", port)
+  local ok = handle:bind("127.0.0.1", port)
   handle:close()
-  return not result
+  return not ok
 end
 
 --- Kill the running server process
@@ -165,21 +166,44 @@ function M.start_server(callback)
   server_state.url = "http://localhost:" .. port
   server_state.running = true
 
+  -- Track if callback has been called
+  local callback_called = false
+  local callback_timeout = nil
+
+  local function call_callback(url)
+    if callback_called then return end
+    callback_called = true
+    if callback_timeout then
+      vim.fn.timer_stop(callback_timeout)
+      callback_timeout = nil
+    end
+    if callback then
+      callback(url)
+    end
+  end
+
   -- Read stdout for PORT:XXXX output
   stdout_pipe:read_start(function(err, data)
     if err or not data then
       return
     end
 
-    -- Check for PORT:XXXX output
+    -- Check for PORT:XXXX output (server successfully started)
     local actual_port = data:match("PORT:(%d+)")
     if actual_port then
       server_state.port = tonumber(actual_port)
       server_state.url = "http://localhost:" .. actual_port
+      -- Call callback with actual port
+      call_callback(server_state.url)
+    end
+
+    -- Check for server started message
+    if data:match("Server started on port") then
+      call_callback(server_state.url)
     end
   end)
 
--- Read stderr for errors
+  -- Read stderr for errors
   stderr_pipe:read_start(function(err, data)
     if err or not data then
       return
@@ -190,14 +214,24 @@ function M.start_server(callback)
         vim.log.levels.ERROR
       )
     end)
+    -- If server failed to start, call callback with nil
+    if data:match("EADDRINUSE") or data:match("Failed to start server") then
+      call_callback(nil)
+    end
   end)
 
-  -- Give the server a moment to start, then call callback
-  vim.defer_fn(function()
-    if callback then
-      callback(server_state.url)
+  -- Set a timeout in case server never outputs PORT
+  callback_timeout = vim.fn.timer_start(2000, function()
+    if not callback_called then
+      vim.schedule(function()
+        vim.notify(
+          "plantuml.nvim: Server startup timeout",
+          vim.log.levels.WARN
+        )
+      end)
+      call_callback(server_state.url)
     end
-  end, 100)
+  end)
 end
 
 --- Stop the running server
