@@ -271,9 +271,48 @@
           "Close preview: browser shows shutdown message",
           "Other commands still work: :PlantumlCreateSVG, :PlantumlCreatePNG, :PlantumlCreateUTXT"
         ]
-      },
+},
       "skills": ["verification-before-completion"],
       "complete": true
+    },
+    {
+      "task": "Fix nested template literal syntax error",
+      "description": "Replace nested template string with single-quoted string to resolve JavaScript parsing error.",
+      "steps": [
+        {
+          "step": 1,
+          "description": "Locate the nested template literal in generateHTML function around line 146"
+        },
+        {
+          "step": 2,
+          "description": "Replace inner template string with single-quoted string concatenation"
+        },
+        {
+          "step": 3,
+          "description": "Verify Node.js can parse the file without syntax errors"
+        },
+        {
+          "step": 4,
+          "description": "Test server startup with node server/server.js --port 8912"
+        }
+      ],
+      "acceptance-criteria": "Node.js parses server.js without SyntaxError. Server starts successfully and listens on specified port. No 'Unexpected identifier' errors appear in console.",
+      "test-plan": {
+        "unit": [
+          "Node.js --check server/server.js completes with exit code 0 (syntax validation only)",
+          "Node.js can require the file without throwing SyntaxError"
+        ],
+        "integration": [
+          "Server starts on port 8912 and prints 'Server started on port 8912' to stdout",
+          "Server responds to GET / request with HTML content containing 'PlantUML Preview'"
+        ],
+        "e2e-manual": [
+          "Execute :PlantumlPreview command in Neovim and verify browser opens with diagram preview",
+          "Verify no error messages appear in Neovim messages or terminal"
+        ]
+      },
+      "skills": ["systematic-debugging", "verification-before-completion"],
+      "complete": false
     }
   ]
 }
