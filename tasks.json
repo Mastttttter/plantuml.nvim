@@ -312,7 +312,7 @@
         ]
       },
       "skills": ["systematic-debugging", "verification-before-completion"],
-      "complete": false
+      "complete": true
     }
   ]
 }

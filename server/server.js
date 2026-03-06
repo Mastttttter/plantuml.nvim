@@ -143,15 +143,12 @@ function generateHTML() {
     eventSource.addEventListener('shutdown', function(e) {
       console.log('Shutdown event received');
       // Display friendly close message
-      document.body.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f5f5f5;font-family:Arial,sans-serif;">
-          <div style="text-align:center;padding:40px;background:white;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
-            <h1 style="color:#333;margin-bottom:20px;">Preview Closed</h1>
-            <p style="color:#666;margin-bottom:30px;">The Neovim preview has been stopped.</p>
-            <p style="color:#999;font-size:14px;">You can safely close this tab.</p>
-          </div>
-        </div>
-      `;
+      document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f5f5f5;font-family:Arial,sans-serif;">' +
+        '<div style="text-align:center;padding:40px;background:white;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">' +
+        '<h1 style="color:#333;margin-bottom:20px;">Preview Closed</h1>' +
+        '<p style="color:#666;margin-bottom:30px;">The Neovim preview has been stopped.</p>' +
+        '<p style="color:#999;font-size:14px;">You can safely close this tab.</p>' +
+        '</div></div>';
       // Try to close the window (may not work if not opened by script)
       setTimeout(function() {
         window.close();
